@@ -31,45 +31,36 @@ A Laravel-based AI Chat Aggregator that allows users to interact with multiple A
 
 ## Installation
 
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/YOUR_USERNAME/chat-aggregator.git
-cd chat-aggregator
-
-composer install
-copy .env.example .env
-php artisan key:generate
-
+1. Clone the repository
+   git clone https://github.com/Moazjawish/chat-aggregator.git
+   cd chat-aggregator
 
 2. Install dependencies
-composer install
+   composer install
 
 3. Create environment file
-copy .env.example .env
+   copy .env.example .env
 
 4. Generate application key
-php artisan key:generate
+   php artisan key:generate
 
 5. Configure database
-Update .env with your MySQL credentials.
+   Update .env with your MySQL credentials.
 
 6. Run migrations
-php artisan migrate
+   php artisan migrate
 
 7. Seed database
-php artisan db:seed
+   php artisan db:seed
 
 8. Clear configuration cache
-php artisan optimize:clear
+   php artisan optimize:clear
 
 9. Start the application
-php artisan serve
+   php artisan serve
 
 The application will be available at:
 http://127.0.0.1:8000
-
-
 
 ## API Usage
 
@@ -77,9 +68,11 @@ The API allows authenticated users to send messages to available AI models.
 
 ### Example Request
 
-```http
+````http
 POST /api/v1/chat
 Content-Type: application/json
+get bearer token by response of user's login request
+
 Authorization: Bearer YOUR_TOKEN
 {
     "model": "gpt-5.5",
@@ -124,3 +117,5 @@ CLAUDE_CA_BUNDLE=C:/path/to/cacert.pem
 DEEPSEEK_CA_BUNDLE=C:/path/to/cacert.pem
 
 php artisan optimize:clear
+
+````
