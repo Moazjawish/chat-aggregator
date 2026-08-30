@@ -44,7 +44,6 @@ class ChatController extends Controller
             ], 403);
         }
 
-
         $response = $aiService->chat(
             $model,
             $request->message

@@ -17,8 +17,13 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            AIModelSeeder::class,
             UserSeeder::class,
+            AIModelSeeder::class,
+            AIModelCostSeeder::class,
+            FeatureSeeder::class,
+            SubscriptionPlanSeeder::class,
+            SubscriptionPlanModelSeeder::class,
+            SubscriptionPlanFeatureSeeder::class,
         ]);
     }
 }

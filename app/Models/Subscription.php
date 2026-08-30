@@ -2,14 +2,34 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Laravel\Cashier\Subscription as CashierSubscription;
 
-class Subscription extends Model
+class Subscription extends CashierSubscription
 {
-    protected $table = "subscriptions";
-    protected $fillable = ['model_id','name'];
-    public function model()
+    protected $table = 'subscriptions';
+
+    protected $fillable = [
+        'user_id',
+        'subscription_plan_id',
+        'type',
+        'stripe_id',
+        'stripe_status',
+        'stripe_price',
+        'quantity',
+        'trial_ends_at',
+        'ends_at',
+    ];
+
+    public function subscriptionPlan()
     {
-        return $this->belongsTo(AIModel::class,'model_id');
+        return $this->belongsTo(
+            SubscriptionPlan::class,
+            'subscription_plan_id'
+        );
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
     }
 }

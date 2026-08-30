@@ -11,12 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('subscriptions',function(Blueprint $table){
-            $table->id();
-            $table->foreignId('model_id')->constrained();
-            $table->string('name');
-            $table->timestamps();
-
+        Schema::table('subscription_items', function (Blueprint $table) {
+            $table->string('meter_id')->nullable()->after('stripe_price');
         });
     }
 
@@ -25,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        //
+        Schema::table('subscription_items', function (Blueprint $table) {
+            $table->dropColumn('meter_id');
+        });
     }
 };

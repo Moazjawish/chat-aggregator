@@ -10,21 +10,19 @@ class AIModel extends Model
     protected $fillable = [
         'name',
         'provider',
-        'model_key',
-
+        'model_key',    'status',
     ];
 
-    public function users()
+    public function subscriptionsPlan()
     {
-        return $this->belongsToMany(User::class, 'user_models','model_id', 'user_id')
-        ->withPivot(['subscription_id',
-                    'started_at',
-                    'expires_at',
-                    'status']);
+        return $this->belongsToMany(SubscriptionPlan::class,'subscription_plan_model', 'model_id',
+        'subscription_plan_id')->withPivot('status')->withTimestamps();
     }
 
-    public function subscriptions()
+    public function costs()
     {
-        return $this->hasMany(Subscription::class, 'model_id');
+        return $this->hasMany(ModelCost::class);
     }
+
 }
+
