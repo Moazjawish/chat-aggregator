@@ -4,18 +4,18 @@ Chat Aggregator is a Laravel-based backend platform that allows users to interac
 
 The platform supports:
 
-* Multiple AI providers
-* Multiple AI models
-* Subscription plans
-* Model-based pricing
-* Token usage limits
-* File and image attachments
-* Conversation history
-* Model switching inside the same conversation
-* Stripe payments and subscriptions
-* Usage and cost tracking
-* Feature-based access control
-* Model capability control
+- Multiple AI providers
+- Multiple AI models
+- Subscription plans
+- Model-based pricing
+- Token usage limits
+- File and image attachments
+- Conversation history
+- Model switching inside the same conversation
+- Stripe payments and subscriptions
+- Usage and cost tracking
+- Feature-based access control
+- Model capability control
 
 The project is designed to serve as the backend API for a React frontend.
 
@@ -84,22 +84,22 @@ Database
 
 ## Backend
 
-* PHP 8.4
-* Laravel 11
-* Laravel Sanctum
-* Laravel Cashier
-* MySQL
-* Redis / Laravel Cache Locks
-* Guzzle HTTP Client
+- PHP 8.4
+- Laravel 11
+- Laravel Sanctum
+- Laravel Cashier
+- MySQL
+- Redis / Laravel Cache Locks
+- Guzzle HTTP Client
 
 ## AI Providers
 
 The project supports multiple AI providers through dedicated services.
 
-* OpenAI
-* Google Gemini
-* Anthropic Claude
-* DeepSeek
+- OpenAI
+- Google Gemini
+- Anthropic Claude
+- DeepSeek
 
 Each provider implements the same common interface.
 
@@ -122,16 +122,16 @@ The backend is designed to work with a React frontend.
 
 The frontend can use the API to:
 
-* authenticate users
-* display available models
-* manage subscriptions
-* create conversations
-* display conversation history
-* upload attachments
-* send messages
-* display token usage
-* display remaining limits
-* manage billing
+- authenticate users
+- display available models
+- manage subscriptions
+- create conversations
+- display conversation history
+- upload attachments
+- send messages
+- display token usage
+- display remaining limits
+- manage billing
 
 ---
 
@@ -140,7 +140,7 @@ The frontend can use the API to:
 ## 1. Clone the repository
 
 ```bash
-git clone YOUR_REPOSITORY_URL
+git clone https://github.com/Moazjawish/chat-aggregator.git
 ```
 
 Enter the project directory:
@@ -282,11 +282,11 @@ Stores application users.
 
 The user is connected to:
 
-* subscriptions
-* conversations
-* files
-* usage
-* payments
+- subscriptions
+- conversations
+- files
+- usage
+- payments
 
 ---
 
@@ -379,9 +379,9 @@ status
 
 This allows the same AI model to have different:
 
-* pricing
-* limits
-* availability
+- pricing
+- limits
+- availability
 
 depending on the subscription plan.
 
@@ -1927,18 +1927,18 @@ Absolute server paths are never returned to the frontend.
 
 The backend includes several security controls:
 
-* Sanctum authentication
-* user ownership checks
-* conversation ownership validation
-* file ownership validation
-* subscription validation
-* plan feature validation
-* model capability validation
-* model plan access validation
-* token usage enforcement
-* Redis atomic locks
-* Stripe webhook signature handling through Cashier
-* no exposure of local filesystem paths to frontend
+- Sanctum authentication
+- user ownership checks
+- conversation ownership validation
+- file ownership validation
+- subscription validation
+- plan feature validation
+- model capability validation
+- model plan access validation
+- token usage enforcement
+- Redis atomic locks
+- Stripe webhook signature handling through Cashier
+- no exposure of local filesystem paths to frontend
 
 ---
 
@@ -1972,10 +1972,10 @@ Provider cost and customer cost are stored independently.
 
 This makes it possible to:
 
-* calculate profit margins
-* change plan pricing
-* analyze provider expenses
-* generate financial reports
+- calculate profit margins
+- change plan pricing
+- analyze provider expenses
+- generate financial reports
 
 ---
 
