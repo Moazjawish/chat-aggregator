@@ -1,88 +1,137 @@
 # Chat Aggregator
 
-A Laravel-based AI Chat Aggregator that provides a unified platform for interacting with multiple AI providers through a single application.
+Chat Aggregator is a Laravel-based backend platform that allows users to interact with multiple AI providers and models through a unified chat system.
 
-The platform is designed to allow users to subscribe to a subscription plan, access the AI models included in that plan, and interact with different AI providers through a unified backend.
+The platform supports:
 
-The project also integrates **Stripe Billing** and **Laravel Cashier** to handle subscriptions, payments, refunds, plan changes, cancellations, and the Stripe Customer Portal.
+* Multiple AI providers
+* Multiple AI models
+* Subscription plans
+* Model-based pricing
+* Token usage limits
+* File and image attachments
+* Conversation history
+* Model switching inside the same conversation
+* Stripe payments and subscriptions
+* Usage and cost tracking
+* Feature-based access control
+* Model capability control
 
----
-
-## Features
-
-### AI Integration
-
-- Multi-provider AI integration.
-- Support for multiple AI providers.
-- Unified API for interacting with different AI models.
-- Model selection based on the user's subscription plan.
-- Centralized model configuration.
-
-### Subscription System
-
-- Subscription plans.
-- Monthly and yearly billing.
-- One active subscription plan per user.
-- Subscription status tracking.
-- Change subscription plan.
-- Cancel subscription.
-- Resume subscription during the grace period.
-- Current subscription API.
-- Subscription-plan/model relationships.
-
-### Stripe Integration
-
-- Stripe Checkout.
-- Stripe Billing.
-- Laravel Cashier.
-- Stripe Customer creation.
-- Stripe subscriptions.
-- Stripe prices and products.
-- Stripe Webhooks.
-- Payment tracking.
-- Failed payment tracking.
-- Refund tracking.
-- Customer Portal.
-- Subscription cancellation.
-- Subscription plan changes.
-- Payment method management.
+The project is designed to serve as the backend API for a React frontend.
 
 ---
 
-# Tech Stack
+# Project Overview
 
-- PHP 8.4
-- Laravel 11
-- MySQL
-- Laravel Cashier
-- Stripe
-- Stripe PHP SDK
-- Laravel Sanctum
-- Guzzle
-- React
-- Tailwind CSS
+The main goal of the system is to provide users with one interface where they can interact with different AI models based on their active subscription plan.
 
-### Supported AI Providers
+A user can:
 
-- OpenAI
-- Google Gemini
-- Anthropic Claude
-- DeepSeek
+1. Register and log in.
+2. Subscribe to a plan.
+3. Access models included in the plan.
+4. Start conversations.
+5. Switch between AI models inside the same conversation.
+6. Upload images or documents.
+7. Send files to supported AI models.
+8. Track token usage.
+9. Track remaining usage limits.
+10. Upgrade or change subscription plans.
+11. View payment history.
+12. Cancel or resume subscriptions.
 
 ---
 
-# Requirements
+# Main Architecture
 
-Before running the project, make sure the following are installed:
+The main request flow is:
 
-- PHP 8.4+
-- Composer
-- MySQL
-- Node.js
-- npm
-- Laravel
-- Stripe CLI
-- Git
+```text
+User
+   ↓
+Authentication
+   ↓
+Subscription
+   ↓
+Subscription Plan
+   ↓
+Features + Models
+   ↓
+Conversation
+   ↓
+Message
+   ↓
+Attachments
+   ↓
+AI Service
+   ↓
+Provider Service
+   ↓
+AI Provider API
+   ↓
+Response
+   ↓
+Token Usage
+   ↓
+Cost Calculation
+   ↓
+Database
+```
+
+---
+
+# Technology Stack
+
+## Backend
+
+* PHP 8.4
+* Laravel 11
+* Laravel Sanctum
+* Laravel Cashier
+* MySQL
+* Redis / Laravel Cache Locks
+* Guzzle HTTP Client
+
+## AI Providers
+
+The project supports multiple AI providers through dedicated services.
+
+* OpenAI
+* Google Gemini
+* Anthropic Claude
+* DeepSeek
+
+Each provider implements the same common interface.
+
+```php
+interface AIProviderInterface
+{
+    public function chat(
+        string $model,
+        array $messages,
+        array $attachments = []
+    ): array;
+}
+```
+
+---
+
+# Frontend
+
+The backend is designed to work with a React frontend.
+
+The frontend can use the API to:
+
+* authenticate users
+* display available models
+* manage subscriptions
+* create conversations
+* display conversation history
+* upload attachments
+* send messages
+* display token usage
+* display remaining limits
+* manage billing
 
 ---
 
@@ -91,7 +140,12 @@ Before running the project, make sure the following are installed:
 ## 1. Clone the repository
 
 ```bash
-git clone https://github.com/Moazjawish/chat-aggregator.git
+git clone YOUR_REPOSITORY_URL
+```
+
+Enter the project directory:
+
+```bash
 cd Chat_Aggregator
 ```
 
@@ -105,31 +159,21 @@ composer install
 
 ---
 
-## 3. Install frontend dependencies
-
-```bash
-npm install
-```
-
----
-
-## 4. Create the environment file
-
-Windows:
-
-```powershell
-copy .env.example .env
-```
-
-Linux/macOS:
+## 3. Create environment file
 
 ```bash
 cp .env.example .env
 ```
 
+On Windows:
+
+```powershell
+copy .env.example .env
+```
+
 ---
 
-## 5. Generate the application key
+## 4. Generate application key
 
 ```bash
 php artisan key:generate
@@ -139,9 +183,15 @@ php artisan key:generate
 
 # Database Configuration
 
-Configure your MySQL database in `.env`.
+Create a MySQL database.
 
 Example:
+
+```text
+chat_aggregator
+```
+
+Configure `.env`:
 
 ```env
 DB_CONNECTION=mysql
@@ -152,103 +202,1032 @@ DB_USERNAME=root
 DB_PASSWORD=
 ```
 
-Then run:
+Run migrations:
 
 ```bash
 php artisan migrate
 ```
 
-If you want to recreate the database and run seeders:
+Run seeders:
+
+```bash
+php artisan db:seed
+```
+
+Or:
 
 ```bash
 php artisan migrate:fresh --seed
 ```
 
-> `migrate:fresh --seed` deletes all existing database tables and recreates them. Do not use it on a production database.
+Use `migrate:fresh` only in development because it deletes existing data.
 
 ---
 
-# Stripe Configuration
+# Running the Application
 
-The project uses Stripe in **Test Mode** during development.
-
-Configure the Stripe keys in `.env`:
-
-```env
-STRIPE_KEY=your_stripe_publishable_key
-STRIPE_SECRET=your_stripe_secret_key
-STRIPE_WEBHOOK_SECRET=your_webhook_secret
-```
-
-Laravel Cashier should use the same Stripe secret key.
-
----
-
-# Stripe Test Mode
-
-Make sure **Test Mode** is enabled in Stripe Dashboard.
-
-Do not use real cards while testing.
-
-A common successful Stripe test card is:
-
-```text
-4242 4242 4242 4242
-```
-
-Use:
-
-```text
-Expiry: Any future date
-CVC: 123
-ZIP: 12345
-```
-
-For testing a declined payment:
-
-```text
-4000 0000 0000 0002
-```
-
----
-
-# Stripe CLI
-
-The application receives Stripe events through a Laravel webhook endpoint.
-
-Start the Laravel application:
+Start Laravel:
 
 ```bash
 php artisan serve
 ```
 
-The application should normally be available at:
+Default URL:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-Then start Stripe CLI:
+API base URL:
+
+```text
+http://127.0.0.1:8000/api
+```
+
+---
+
+# Authentication
+
+Authentication is handled using Laravel Sanctum.
+
+Public routes include:
+
+```text
+POST /api/register
+POST /api/login
+POST /api/stripe/webhook
+```
+
+Authenticated routes require:
+
+```http
+Authorization: Bearer YOUR_TOKEN
+```
+
+Recommended headers:
+
+```text
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN
+```
+
+---
+
+# Main Database Structure
+
+## users
+
+Stores application users.
+
+The user is connected to:
+
+* subscriptions
+* conversations
+* files
+* usage
+* payments
+
+---
+
+# Subscription Plans
+
+The `subscription_plans` table represents the plans available to users.
+
+Typical fields include:
+
+```text
+id
+name
+description
+price
+currency
+billing_interval
+duration_days
+stripe_product_id
+stripe_price_id
+status
+```
+
+Example plans:
+
+```text
+Basic
+Pro
+Premium
+```
+
+---
+
+# Models
+
+The `models` table stores AI models supported by the platform.
+
+Typical fields:
+
+```text
+id
+name
+provider
+model_key
+status
+```
+
+Example:
+
+```text
+GPT
+Gemini
+Claude
+DeepSeek
+```
+
+`model_key` contains the identifier used by the provider API.
+
+Example:
+
+```text
+gpt-...
+gemini-...
+claude-...
+deepseek-...
+```
+
+---
+
+# Subscription Plan Models
+
+Plans and models use a many-to-many relationship.
+
+Pivot table:
+
+```text
+subscription_plan_model
+```
+
+This table contains:
+
+```text
+subscription_plan_id
+model_id
+input_price
+output_price
+input_token_limit
+output_token_limit
+status
+```
+
+This allows the same AI model to have different:
+
+* pricing
+* limits
+* availability
+
+depending on the subscription plan.
+
+---
+
+# Provider Costs
+
+Provider costs are stored separately from user-facing prices.
+
+Table:
+
+```text
+model_costs
+```
+
+Typical fields:
+
+```text
+model_id
+input_cost
+output_cost
+effective_from
+effective_to
+```
+
+This represents the actual cost paid to the AI provider.
+
+User prices are stored separately in:
+
+```text
+subscription_plan_model
+```
+
+Therefore:
+
+```text
+Provider Cost
++
+Profit Margin
+=
+User Price
+```
+
+---
+
+# Cost Calculation
+
+Token prices are calculated per 1,000,000 tokens.
+
+Example:
+
+```php
+$inputCost =
+    ($inputTokens / 1_000_000)
+    * $inputPrice;
+
+$outputCost =
+    ($outputTokens / 1_000_000)
+    * $outputPrice;
+```
+
+Total:
+
+```php
+$totalCost =
+    $inputCost
+    +
+    $outputCost;
+```
+
+Two types of cost are stored:
+
+```text
+provider_cost
+user_cost
+```
+
+`provider_cost` represents the actual provider cost.
+
+`user_cost` represents the amount charged according to the subscription plan pricing.
+
+---
+
+# Features
+
+The system contains a dynamic feature system.
+
+Table:
+
+```text
+features
+```
+
+Fields:
+
+```text
+id
+name
+key
+description
+status
+```
+
+Current feature examples:
+
+```text
+file_upload
+image_upload
+web_search
+advanced_models
+```
+
+Plans are connected to features using:
+
+```text
+subscription_plan_feature
+```
+
+Fields include:
+
+```text
+subscription_plan_id
+feature_id
+status
+```
+
+This means each subscription plan can independently enable or disable system features.
+
+---
+
+# Feature Checking
+
+Features are checked through `FeatureService`.
+
+Example:
+
+```php
+$featureService->has(
+    $user,
+    'file_upload'
+);
+```
+
+This verifies:
+
+1. user has a subscription
+2. subscription is valid
+3. subscription has a current plan
+4. the plan contains the requested active feature
+
+---
+
+# Feature Middleware
+
+Laravel middleware can be used for routes that require a specific feature.
+
+Example:
+
+```php
+->middleware('feature:web_search')
+```
+
+The middleware alias is registered in:
+
+```text
+bootstrap/app.php
+```
+
+Example:
+
+```php
+$middleware->alias([
+    'feature' => FeatureMiddleware::class,
+]);
+```
+
+File uploads currently perform feature checks dynamically inside the controller because the same endpoint handles both:
+
+```text
+image_upload
+file_upload
+```
+
+---
+
+# Model Capabilities
+
+Plan Features and Model Capabilities are different concepts.
+
+A Plan Feature answers:
+
+```text
+Is the user allowed to use this feature?
+```
+
+A Model Capability answers:
+
+```text
+Can this AI model technically process this type of input?
+```
+
+Capabilities are stored in:
+
+```text
+model_capabilities
+```
+
+Fields:
+
+```text
+model_id
+key
+status
+```
+
+Current capabilities include:
+
+```text
+image_input
+document_input
+```
+
+Example:
+
+```text
+Plan supports image_upload
++
+Model supports image_input
+=
+User can send images to that model
+```
+
+Both conditions must be true.
+
+---
+
+# Conversations
+
+Conversations are stored in:
+
+```text
+conversations
+```
+
+Typical fields:
+
+```text
+id
+user_id
+title
+created_at
+updated_at
+```
+
+A conversation is not permanently connected to one AI model.
+
+This allows users to switch models inside the same conversation.
+
+Example:
+
+```text
+Conversation
+├── User → Gemini
+├── Assistant → Gemini
+├── User → GPT
+├── Assistant → GPT
+└── User → Claude
+```
+
+Each individual message stores the selected model.
+
+---
+
+# Messages
+
+Messages are stored in:
+
+```text
+messages
+```
+
+Important fields:
+
+```text
+conversation_id
+model_id
+role
+content
+input_tokens
+output_tokens
+provider_cost
+user_cost
+created_at
+updated_at
+```
+
+Roles currently include:
+
+```text
+user
+assistant
+```
+
+The `model_id` is stored on both user and assistant messages.
+
+This makes it possible to know exactly which model was selected for every request.
+
+---
+
+# Conversation History
+
+Before sending a new request, the system loads previous messages:
+
+```text
+Conversation
+   ↓
+Messages
+   ↓
+AI Provider
+```
+
+This allows AI models to receive previous conversation context.
+
+When the user switches models, the new model also receives the previous conversation history.
+
+---
+
+# File Uploads
+
+Files are uploaded separately from chat requests.
+
+Endpoint:
+
+```text
+POST /api/files
+```
+
+The endpoint accepts multipart form data.
+
+Example:
+
+```text
+file = document.pdf
+```
+
+Supported types currently include:
+
+```text
+pdf
+txt
+doc
+docx
+jpg
+jpeg
+png
+webp
+```
+
+Default maximum size:
+
+```text
+10 MB
+```
+
+---
+
+# File Upload Flow
+
+Files are not uploaded directly inside `/api/chat`.
+
+The process is:
+
+```text
+POST /api/files
+        ↓
+Store file
+        ↓
+Create files record
+        ↓
+Return file ID
+        ↓
+POST /api/chat
+        ↓
+Send file_ids
+```
+
+Example response:
+
+```json
+{
+    "attachment": {
+        "id": 12,
+        "type": "document"
+    }
+}
+```
+
+Chat request:
+
+```json
+{
+    "model_id": 3,
+    "message": "Explain this document",
+    "file_ids": [12]
+}
+```
+
+---
+
+# Files Table
+
+The `files` table stores attachment information.
+
+Fields include:
+
+```text
+id
+user_id
+conversation_id
+original_name
+path
+disk
+mime_type
+extension
+size
+status
+extracted_text
+processing_error
+created_at
+updated_at
+```
+
+Files are currently sent directly to AI providers.
+
+Manual text extraction is not required for the main attachment flow.
+
+---
+
+# Message Attachments
+
+Files are connected to exact messages using:
+
+```text
+message_file
+```
+
+This is a many-to-many relationship between:
+
+```text
+messages
+files
+```
+
+Example:
+
+```text
+Message 25
+├── CV.pdf
+└── photo.png
+```
+
+Pivot fields:
+
+```text
+message_id
+file_id
+created_at
+updated_at
+```
+
+---
+
+# Attachment History
+
+Attachments are preserved as part of conversation context.
+
+Example:
+
+```text
+Message 1
+"Explain this PDF"
+└── report.pdf
+
+Message 2
+"What is the most important result?"
+```
+
+The second request can still access the previous attachment even if `file_ids` is not sent again.
+
+Historical attachments are loaded from:
+
+```text
+message_file
+```
+
+and passed again to the current AI provider when required.
+
+---
+
+# Switching Models With Attachments
+
+When a user changes models inside a conversation, the system checks whether the new model supports all required historical attachment types.
+
+Example:
+
+```text
+Gemini
+document_input = true
+
+↓ switch
+
+Model B
+document_input = false
+```
+
+The request is rejected rather than sending an unsupported attachment.
+
+Example response:
+
+```json
+{
+    "message": "The selected model does not support document input."
+}
+```
+
+---
+
+# AI Service
+
+`AIService` is the central service responsible for chat processing.
+
+Responsibilities include:
+
+1. validating the user
+2. validating the conversation
+3. validating the subscription
+4. finding the current subscription plan
+5. checking model availability
+6. validating attachments
+7. checking plan features
+8. checking model capabilities
+9. checking usage limits
+10. loading conversation history
+11. loading historical attachments
+12. selecting the AI provider
+13. sending the API request
+14. receiving actual token usage
+15. calculating costs
+16. storing messages
+17. linking attachments
+18. recording model usage
+
+---
+
+# Provider Services
+
+Provider-specific logic is separated into different services.
+
+Example:
+
+```text
+AIService
+├── OpenAIService
+├── GoogleAIService
+├── ClaudeService
+└── DeepSeekService
+```
+
+The service is selected using the model provider.
+
+Example:
+
+```php
+return match (
+    strtolower($model->provider)
+) {
+    'openai' =>
+        $this->openAIService->chat(...),
+
+    'google',
+    'gemini' =>
+        $this->googleAIService->chat(...),
+
+    'anthropic',
+    'claude' =>
+        $this->claudeService->chat(...),
+
+    'deepseek' =>
+        $this->deepSeekService->chat(...),
+
+    default =>
+        throw new RuntimeException(
+            'Unsupported AI provider.'
+        ),
+};
+```
+
+---
+
+# Google Gemini Attachments
+
+Gemini supports direct file processing.
+
+PDF files are uploaded through Gemini Files API.
+
+The application waits for Gemini to process the file before sending it to the model.
+
+Images are sent as inline binary data.
+
+This allows the AI model to directly process:
+
+```text
+PDF
+Images
+```
+
+without manually extracting document text.
+
+---
+
+# OpenAI Attachments
+
+The OpenAI service supports multimodal input through the Responses API.
+
+Depending on the model, attachments may be sent as:
+
+```text
+input_image
+input_file
+```
+
+The backend checks the model capability before sending attachments.
+
+---
+
+# Claude Attachments
+
+Claude service supports multimodal content.
+
+Images are sent using base64 sources.
+
+PDF support can also be handled as document content for compatible Claude models.
+
+---
+
+# DeepSeek
+
+DeepSeek requests are sent through the provider chat API.
+
+Attachments are allowed only when the configured model supports the corresponding capability.
+
+Unsupported attachment types are rejected before the request reaches the provider.
+
+---
+
+# Usage Tracking
+
+Every successful AI request creates a usage record.
+
+Table:
+
+```text
+model_usages
+```
+
+Fields include:
+
+```text
+user_id
+subscription_id
+model_id
+input_tokens
+output_tokens
+total_provider_cost
+total_user_cost
+created_at
+updated_at
+```
+
+Usage is stored per:
+
+```text
+subscription
++
+model
++
+billing period
+```
+
+---
+
+# Usage Limits
+
+Limits are defined in:
+
+```text
+subscription_plan_model
+```
+
+Fields:
+
+```text
+input_token_limit
+output_token_limit
+```
+
+Example:
+
+```text
+Input limit: 100000
+Output limit: 50000
+```
+
+The backend calculates:
+
+```text
+used
+limit
+remaining
+can_use
+```
+
+---
+
+# Billing Period Usage
+
+Usage is not deleted when a subscription renews.
+
+Instead, the subscription contains:
+
+```text
+current_period_start
+current_period_end
+```
+
+Only usage records within the current billing period are counted.
+
+Example:
+
+```text
+Subscription ID = 10
+
+Period 1
+2026-08-05 → 2026-09-05
+
+Period 2
+2026-09-05 → 2026-10-05
+```
+
+The same subscription can continue, while token limits reset logically for each new period.
+
+Old usage remains stored for reporting and cost analysis.
+
+---
+
+# Usage Query Logic
+
+Usage is filtered approximately as:
+
+```sql
+WHERE subscription_id = ?
+AND model_id = ?
+AND created_at >= current_period_start
+AND created_at < current_period_end
+```
+
+This means there is no need to delete or reset old usage rows.
+
+---
+
+# Concurrent Usage Protection
+
+The application uses Laravel Cache Locks to prevent concurrent requests from bypassing token limits.
+
+Lock key format:
+
+```text
+ai-usage:subscription:{subscription_id}:model:{model_id}
+```
+
+Example:
+
+```php
+Cache::lock(
+    $lockKey,
+    120
+);
+```
+
+The usage check is performed inside the lock.
+
+This prevents two simultaneous requests from reading the same old usage amount and both passing the limit check.
+
+---
+
+# Stripe Integration
+
+Payments and subscriptions are handled using:
+
+```text
+Stripe
+Laravel Cashier
+Stripe CLI
+```
+
+---
+
+# Stripe Configuration
+
+Add Stripe keys to `.env`:
+
+```env
+STRIPE_KEY=pk_test_...
+STRIPE_SECRET=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+Depending on the Cashier configuration, additional variables may be required.
+
+---
+
+# Stripe Webhook
+
+Webhook route:
+
+```text
+POST /api/stripe/webhook
+```
+
+For local development:
 
 ```bash
 stripe listen --forward-to http://127.0.0.1:8000/api/stripe/webhook
 ```
 
-Stripe CLI will display a webhook signing secret.
+Stripe CLI will return a webhook signing secret.
+
+Add it to `.env`.
 
 Example:
 
-```text
-Ready! Your webhook signing secret is whsec_xxxxxxxxx
-```
-
-Add that value to:
-
 ```env
-STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxx
+STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
-Then clear Laravel configuration:
+Then clear cached configuration:
 
 ```bash
 php artisan optimize:clear
@@ -256,19 +1235,9 @@ php artisan optimize:clear
 
 ---
 
-# Stripe Webhook
+# Stripe Events
 
-The application exposes:
-
-```http
-POST /api/stripe/webhook
-```
-
-Stripe events are forwarded to this endpoint.
-
-The webhook controller extends Laravel Cashier's webhook controller.
-
-Important events handled by the application include:
+The application handles events including:
 
 ```text
 customer.subscription.created
@@ -279,110 +1248,113 @@ invoice.payment_succeeded
 invoice.payment_failed
 
 charge.refunded
-```
 
-The webhook is responsible for synchronizing Stripe events with the local database.
-
----
-
-# Important Database Structure
-
-## Users
-
-The `users` table contains the application user and Stripe customer information.
-
-Important Stripe fields include:
-
-```text
-stripe_customer_id
-stripe_id
-pm_type
-pm_last_four
-trial_ends_at
+customer.updated
+customer.deleted
 ```
 
 ---
 
-## Subscription Plans
+# Subscription Creation
 
-The `subscription_plans` table represents plans offered by the application.
-
-Example:
+When Stripe sends:
 
 ```text
-Basic
-Pro
+customer.subscription.created
 ```
 
-Important fields:
+Laravel Cashier first creates or synchronizes the local subscription.
+
+The custom webhook controller then connects the subscription with:
 
 ```text
-id
-name
-description
-price
-currency
-billing_interval
-stripe_product_id
-stripe_price_id
-status
-```
-
-Each plan represents a complete subscription option.
-
----
-
-## Subscriptions
-
-The `subscriptions` table is based on Laravel Cashier.
-
-Important fields:
-
-```text
-user_id
 subscription_plan_id
-type
-stripe_id
-stripe_status
-stripe_price
-quantity
-trial_ends_at
-ends_at
 ```
 
-The application is designed around:
-
-```text
-One User
-    ↓
-One Active Subscription
-    ↓
-One Subscription Plan
-```
-
-For example:
-
-```text
-User
- ↓
-Basic Plan
-```
-
-or:
-
-```text
-User
- ↓
-Pro Plan
-```
+using Stripe metadata.
 
 ---
 
-## Payments
+# Changing Subscription Plans
 
-The `payments` table stores payment information associated with users and subscriptions.
+The subscription contains two local plan fields:
 
-Important fields:
+```text
+subscription_plan_id
+pending_subscription_plan_id
+```
+
+`subscription_plan_id` is the currently active plan.
+
+`pending_subscription_plan_id` represents a requested plan change waiting for successful payment.
+
+---
+
+# Safe Plan Change Flow
+
+The flow is:
+
+```text
+Current Plan
+     ↓
+User requests new plan
+     ↓
+pending_subscription_plan_id = New Plan
+     ↓
+Stripe subscription price changes
+     ↓
+Invoice generated
+     ↓
+Payment succeeds
+     ↓
+invoice.payment_succeeded
+     ↓
+Verify Stripe Price
+     ↓
+subscription_plan_id = New Plan
+     ↓
+pending_subscription_plan_id = NULL
+```
+
+The plan is not activated during:
+
+```text
+customer.subscription.updated
+```
+
+because a Stripe subscription update does not guarantee successful payment.
+
+---
+
+# Failed Plan Changes
+
+When Stripe sends:
+
+```text
+invoice.payment_failed
+```
+
+the application:
+
+```text
+keeps subscription_plan_id unchanged
+clears pending_subscription_plan_id
+records failed payment
+```
+
+This prevents the user from receiving access to a plan that was not successfully paid.
+
+---
+
+# Payments
+
+Payments are stored in:
+
+```text
+payments
+```
+
+Typical fields:
 
 ```text
 user_id
@@ -396,380 +1368,466 @@ status
 paid_at
 ```
 
-Possible application statuses include:
+Possible statuses include:
 
 ```text
-pending
 paid
 failed
 refunded
+partially_refunded
 ```
 
 ---
 
-## AI Models
+# Refunds
 
-The `models` table contains the AI models available in the platform.
-
-Example:
+Stripe refund events are handled through:
 
 ```text
-GPT
-Gemini
-Claude
-DeepSeek
+charge.refunded
 ```
 
-Important fields:
+If the entire payment was refunded:
 
 ```text
-name
-provider
-model_key
-status
+status = refunded
 ```
 
----
-
-## Subscription Plan Models
-
-The `subscription_plan_model` pivot table determines which AI models are available for each subscription plan.
-
-Relationship:
+If only part of the payment was refunded:
 
 ```text
-SubscriptionPlan
-       ↓
-subscription_plan_model
-       ↓
-AIModel
+status = partially_refunded
 ```
 
-Example:
+---
+
+# Stripe Billing Period Synchronization
+
+The local subscription stores:
 
 ```text
-Basic
- ├── GPT
- └── Gemini
-
-Pro
- ├── GPT
- ├── Gemini
- ├── Claude
- └── DeepSeek
+current_period_start
+current_period_end
 ```
 
----
+With Stripe Basil API versions, these values are obtained from the first subscription item:
 
-# API Authentication
-
-The API uses Laravel Sanctum.
-
-Authenticated requests should include:
-
-```http
-Authorization: Bearer YOUR_TOKEN
+```text
+subscription
+└── items
+    └── data[0]
+        ├── current_period_start
+        └── current_period_end
 ```
 
----
-
-# API Testing
-
-The following examples can be tested using:
-
-- Postman
-- React frontend
+These values are synchronized during relevant Stripe subscription and payment events.
 
 ---
 
-# 1. Register
+# Main API Routes
 
-Example:
+## Authentication
 
-```http
+```text
 POST /api/register
-```
-
-Example JSON:
-
-```json
-{
-    "name": "Test User",
-    "email": "test@example.com",
-    "password": "password",
-    "password_confirmation": "password"
-}
-```
-
-Save the returned authentication token.
-
----
-
-# 2. Login
-
-```http
 POST /api/login
+POST /api/logout
 ```
-
-Example:
-
-```json
-{
-    "email": "test@example.com",
-    "password": "password"
-}
-```
-
-Use the returned token for authenticated requests.
 
 ---
 
-# 3. Get Current Subscription
+## Subscription Plans
 
-```http
-GET /api/subscription/current
+```text
+POST /api/plans
 ```
 
-Header:
+Depending on route naming in the frontend, this can be used to retrieve plan information.
 
-```http
-Authorization: Bearer YOUR_TOKEN
-Accept: application/json
+---
+
+## Subscription
+
+```text
+GET  /api/subscription
+POST /api/subscription/checkout
+POST /api/subscription/change-plan
+POST /api/subscription/cancel
+POST /api/subscription/resume
 ```
 
-This endpoint returns the user's current subscription and subscription plan.
+---
 
-Example response:
+## Billing
+
+Billing portal endpoints are also available for managing Stripe billing where configured.
+
+---
+
+## Payments
+
+```text
+GET /api/payments
+```
+
+---
+
+## Usage
+
+```text
+GET /api/usage
+```
+
+Returns current billing-period usage for all models available in the user's current plan.
+
+---
+
+## Models
+
+```text
+GET /api/models
+```
+
+Returns models available in the user's current subscription plan.
+
+Model responses can also contain capabilities such as:
 
 ```json
 {
-    "subscription": {
-        "id": 1,
-        "stripe_id": "sub_xxxxx",
-        "stripe_status": "active"
-    },
-    "plan": {
-        "id": 1,
-        "name": "Basic",
-        "price": "10.00"
+    "capabilities": {
+        "document_input": true,
+        "image_input": true
     }
 }
 ```
 
 ---
 
-# 4. Subscribe to a Plan
+# Conversations
 
-The application creates the Stripe subscription using the Stripe Price associated with the selected subscription plan.
+Typical conversation routes:
 
-The exact endpoint depends on the subscription controller implementation.
+```text
+GET    /api/conversations
+POST   /api/conversations
+GET    /api/conversations/{id}
+PUT    /api/conversations/{id}
+DELETE /api/conversations/{id}
+```
 
 ---
 
-# 5. Change Subscription Plan
+# Files
 
-The application allows the user to change the complete subscription plan.
+```text
+POST /api/files
+```
+
+Uses:
+
+```text
+multipart/form-data
+```
 
 Example:
 
-```http
-POST /api/subscription/change-plan
+```text
+file = report.pdf
+conversation_id = optional
 ```
 
-Example JSON:
+---
+
+# Chat
+
+```text
+POST /api/chat
+```
+
+Example request:
 
 ```json
 {
-    "subscription_plan_id": 2
+    "conversation_id": 7,
+    "model_id": 3,
+    "message": "Explain this document",
+    "file_ids": [12]
 }
 ```
 
-The backend:
+`conversation_id` may be optional depending on the controller flow.
 
-1. Finds the authenticated user's active subscription.
-2. Finds the new subscription plan.
-3. Validates the new Stripe Price.
-4. Calls Cashier's `swap()` method.
-5. Updates the local `subscription_plan_id`.
-6. Updates Stripe metadata.
-7. Stripe sends `customer.subscription.updated`.
-8. Laravel processes the webhook.
+If no conversation exists, the backend can create a new conversation.
 
 ---
 
-# 6. Cancel Subscription
+# Example Chat Without Attachment
+
+```json
+{
+    "model_id": 3,
+    "message": "Explain dependency injection in Laravel"
+}
+```
+
+---
+
+# Example Chat With PDF
+
+First upload:
+
+```text
+POST /api/files
+```
+
+Then:
+
+```json
+{
+    "conversation_id": 7,
+    "model_id": 3,
+    "message": "Summarize this PDF",
+    "file_ids": [12]
+}
+```
+
+---
+
+# Example Follow-Up Without file_ids
+
+After the PDF was connected to a previous message:
+
+```json
+{
+    "conversation_id": 7,
+    "model_id": 3,
+    "message": "What is the most important point in the document?"
+}
+```
+
+The backend loads the historical attachment from the conversation context.
+
+---
+
+# Conversation Response
+
+A conversation response can contain:
+
+```json
+{
+    "conversation": {
+        "id": 7,
+        "title": "Explain this document"
+    },
+    "messages": [
+        {
+            "id": 25,
+            "role": "user",
+            "content": "Explain this document",
+            "model": {
+                "id": 3,
+                "name": "Gemini",
+                "provider": "gemini"
+            },
+            "attachments": [
+                {
+                    "id": 12,
+                    "type": "document",
+                    "original_name": "report.pdf",
+                    "mime_type": "application/pdf",
+                    "extension": "pdf"
+                }
+            ]
+        }
+    ]
+}
+```
+
+---
+
+# Usage Response
 
 Example:
 
-```http
-POST /api/subscription/cancel
-```
-
-The subscription is canceled according to the configured Cashier behavior.
-
-During the grace period, the subscription may still be usable.
-
-Cashier provides:
-
-```php
-$subscription->onGracePeriod()
-```
-
-to determine whether the canceled subscription is still within its grace period.
-
----
-
-# 7. Resume Subscription
-
-If the subscription has been canceled but is still inside its grace period:
-
-```http
-POST /api/subscription/resume
-```
-
-The subscription can be resumed.
-
----
-
-# 8. Customer Portal
-
-The application can generate a Stripe Customer Portal session for the authenticated user.
-
-The user can use the Stripe Customer Portal to:
-
-- View subscription information.
-- Update payment methods.
-- View invoices.
-- Manage billing information.
-- Cancel subscriptions.
-- Manage their Stripe billing information.
-
-The backend generates the Customer Portal session using the authenticated user's Stripe customer.
-
----
-
-# Testing Stripe Payments
-
-## Successful Payment
-
-Use:
-
-```text
-4242 4242 4242 4242
-```
-
-Verify the `payments` table:
-
-```text
-status = paid
-paid_at != NULL
+```json
+{
+    "subscription": {
+        "id": 8,
+        "plan": {
+            "id": 2,
+            "name": "Pro"
+        },
+        "current_period_start": "2026-09-05T15:00:00Z",
+        "current_period_end": "2026-10-05T15:00:00Z"
+    },
+    "models": [
+        {
+            "model": {
+                "id": 3,
+                "name": "Gemini",
+                "provider": "gemini"
+            },
+            "can_use": true,
+            "input": {
+                "used": 15430,
+                "limit": 100000,
+                "remaining": 84570
+            },
+            "output": {
+                "used": 3240,
+                "limit": 50000,
+                "remaining": 46760
+            }
+        }
+    ]
+}
 ```
 
 ---
 
-# Testing Failed Payment
+# Error Responses
 
-Use:
+## Unauthenticated
 
-```text
-4000 0000 0000 0002
+```json
+{
+    "message": "Unauthenticated."
+}
 ```
 
-Expected result:
+HTTP:
 
 ```text
-Payment attempt
- ↓
-Stripe declines payment
- ↓
-invoice.payment_failed
- ↓
-Laravel Webhook
- ↓
-Payment status = failed
-```
-
-Expected database value:
-
-```text
-status = failed
-paid_at = NULL
-```
-
-Stripe CLI should display:
-
-```text
-invoice.payment_failed
-```
-
-and:
-
-```text
-<-- [200] POST http://127.0.0.1:8000/api/stripe/webhook
-```
-
-The HTTP `200` confirms that the webhook endpoint successfully responded to Stripe.
-
----
-
-# Testing Refund
-
-First create a successful payment using:
-
-```text
-4242 4242 4242 4242
-```
-
-Then create a refund from Stripe Test Mode.
-
-Expected events include:
-
-```text
-refund.created
-charge.refunded
-refund.updated
-charge.refund.updated
-```
-
-The application processes:
-
-```text
-charge.refunded
-```
-
-Expected database result:
-
-```text
-payments.status = refunded
+401
 ```
 
 ---
 
-# Monitoring Webhooks
+## Model Not Available
 
-Laravel logs are located at:
-
-```text
-storage/logs/laravel.log
+```json
+{
+    "message": "This model is not available in your current subscription plan."
+}
 ```
 
-On Windows PowerShell:
+HTTP:
+
+```text
+403
+```
+
+---
+
+## Feature Not Available
+
+```json
+{
+    "message": "Your current plan does not support document uploads."
+}
+```
+
+HTTP:
+
+```text
+403
+```
+
+---
+
+## Model Capability Not Available
+
+```json
+{
+    "message": "The selected model does not support document input."
+}
+```
+
+HTTP:
+
+```text
+403
+```
+
+---
+
+## Usage Limit Reached
+
+```json
+{
+    "message": "You have reached the usage limit for this model."
+}
+```
+
+HTTP:
+
+```text
+422
+```
+
+---
+
+## Concurrent AI Request
+
+```json
+{
+    "message": "Another request for this model is currently being processed. Please try again."
+}
+```
+
+HTTP:
+
+```text
+429
+```
+
+---
+
+## AI Provider Error
+
+Production example:
+
+```json
+{
+    "message": "The AI provider is temporarily unavailable. Please try again later."
+}
+```
+
+During local development, actual provider errors may be shown when:
+
+```env
+APP_DEBUG=true
+```
+
+---
+
+# Development Debugging
+
+Watch Laravel logs:
 
 ```powershell
 Get-Content storage/logs/laravel.log -Wait
 ```
 
-This is useful when testing Stripe webhooks.
+Linux/macOS:
+
+```bash
+tail -f storage/logs/laravel.log
+```
 
 ---
 
-# Useful Laravel Commands
+# Clear Laravel Cache
 
-Clear Laravel cache:
+After changing `.env` or configuration:
 
 ```bash
 php artisan optimize:clear
 ```
+
+---
+
+# Useful Artisan Commands
 
 Run migrations:
 
@@ -777,215 +1835,546 @@ Run migrations:
 php artisan migrate
 ```
 
-Recreate database:
+Run seeders:
 
 ```bash
-php artisan migrate:fresh --seed
+php artisan db:seed
 ```
 
-Start Laravel:
+Run a specific seeder:
+
+```bash
+php artisan db:seed --class=ModelCapabilitySeeder
+```
+
+Clear cache:
+
+```bash
+php artisan optimize:clear
+```
+
+Start server:
 
 ```bash
 php artisan serve
-```
-
-Check routes:
-
-```bash
-php artisan route:list
 ```
 
 ---
 
-# Recommended Development Workflow
+# Testing Stripe Locally
 
-Run Laravel:
+Login to Stripe CLI:
 
 ```bash
-php artisan serve
+stripe login
 ```
 
-Run Stripe CLI in another terminal:
+Start webhook listener:
 
 ```bash
 stripe listen --forward-to http://127.0.0.1:8000/api/stripe/webhook
 ```
 
-Run frontend:
-
-```bash
-npm run dev
-```
-
-Then test the application using Postman or the React frontend.
+Keep the Stripe CLI terminal running while testing payments.
 
 ---
 
-# Stripe Testing Checklist
+# Testing With Postman
 
-Before considering Stripe integration complete, verify:
+Recommended workflow:
 
 ```text
-[✓] Stripe Test Mode
-[✓] Stripe Customer created
-[✓] Stripe Product created
-[✓] Stripe Price created
-[✓] Checkout works
-[✓] Subscription created
-[✓] customer.subscription.created
-[✓] Subscription linked to local SubscriptionPlan
-[✓] Payment created
-[✓] invoice.payment_succeeded
-[✓] Payment status = paid
-[✓] Current subscription API
-[✓] Change Plan
-[✓] customer.subscription.updated
-[✓] Cancel Subscription
-[✓] Resume Subscription
-[✓] Customer Portal
-[✓] Payment Failed
-[✓] invoice.payment_failed
-[✓] Refund
-[✓] charge.refunded
-[✓] Payment status = refunded
-[✓] Stripe Webhook returns HTTP 200
+1. Register
+2. Login
+3. Copy Bearer Token
+4. Retrieve plans
+5. Subscribe
+6. Verify subscription
+7. Retrieve models
+8. Create conversation
+9. Send text chat
+10. Upload PDF/image
+11. Send chat with file_ids
+12. Send follow-up without file_ids
+13. Switch AI model
+14. Check conversation history
+15. Check usage
+16. Check payments
+17. Test subscription change
+18. Test cancellation/resume
 ```
 
 ---
 
-# Git Workflow
+# Storage
 
-After completing the changes, check the modified files:
+Uploaded files are stored using Laravel Storage.
 
-```bash
-git status
+Example directories:
+
+```text
+users/{user_id}/files
+users/{user_id}/images
 ```
 
-Review the changes:
+The database stores the relative path and disk.
 
-```bash
-git diff
-```
-
-Add the changes:
-
-```bash
-git add .
-```
-
-Create a commit:
-
-```bash
-git commit -m "Complete Stripe subscription and payment integration"
-```
-
-Push to the repository:
-
-```bash
-git push origin main
-```
-
-If your main branch has another name, check it using:
-
-```bash
-git branch
-```
-
-Then push to the correct branch.
+Absolute server paths are never returned to the frontend.
 
 ---
 
-# Important Security Notes
+# Security
 
-Never commit `.env` to the repository.
+The backend includes several security controls:
 
-Make sure `.gitignore` contains:
+* Sanctum authentication
+* user ownership checks
+* conversation ownership validation
+* file ownership validation
+* subscription validation
+* plan feature validation
+* model capability validation
+* model plan access validation
+* token usage enforcement
+* Redis atomic locks
+* Stripe webhook signature handling through Cashier
+* no exposure of local filesystem paths to frontend
+
+---
+
+# Design Principles
+
+## Provider Independence
+
+The application is not tightly coupled to a single AI provider.
+
+Provider-specific implementation exists only inside dedicated services.
+
+---
+
+## Subscription Independence
+
+AI model configuration is separated from subscription pricing.
+
+A model can belong to multiple plans with different:
 
 ```text
-.env
-/vendor/
-/node_modules/
+prices
+token limits
+availability
 ```
 
-Never publish:
+---
+
+## Cost Separation
+
+Provider cost and customer cost are stored independently.
+
+This makes it possible to:
+
+* calculate profit margins
+* change plan pricing
+* analyze provider expenses
+* generate financial reports
+
+---
+
+## Historical Usage Preservation
+
+Usage records are never deleted when a billing cycle renews.
+
+Billing periods determine which usage records count toward the current limit.
+
+This preserves historical financial and analytical data.
+
+---
+
+## Attachment Persistence
+
+Attachments are connected to:
 
 ```text
-STRIPE_SECRET
-STRIPE_WEBHOOK_SECRET
-OPENAI_API_KEY
-GEMINI_API_KEY
-ANTHROPIC_API_KEY
-DEEPSEEK_API_KEY
+User
+Conversation
+Message
 ```
 
-Only `.env.example` should contain the variable names without the real secrets.
+This allows the backend to understand exactly which files were used in which message while still preserving them as part of future conversation context.
 
-Example:
+---
+
+# Current Backend Status
+
+The main backend MVP is implemented.
+
+Completed areas include:
+
+```text
+Authentication
+Subscriptions
+Stripe payments
+Plan changes
+Payment failure handling
+Refund handling
+Billing periods
+Plans
+Models
+Features
+Model capabilities
+Conversations
+Messages
+Attachments
+Attachment history
+Model switching
+AI providers
+Usage tracking
+Token limits
+Provider cost
+User cost
+Concurrency protection
+```
+
+---
+
+# Possible Future Improvements
+
+The following features can be added later.
+
+## Web Search
+
+The `web_search` feature already exists in the feature system and can later be connected to supported AI models or external search providers.
+
+---
+
+## Advanced File Limits
+
+Different plans can have limits such as:
+
+```text
+maximum file size
+maximum number of files
+storage limit
+files per message
+```
+
+---
+
+## File Lifecycle Management
+
+Possible future improvements:
+
+```text
+delete physical file when database record is deleted
+scheduled cleanup for unused uploads
+temporary upload expiration
+cloud storage support
+```
+
+---
+
+## Admin Dashboard
+
+Possible admin functionality:
+
+```text
+Manage users
+Manage subscription plans
+Manage models
+Manage model pricing
+Manage provider costs
+Manage features
+Manage capabilities
+View payments
+View provider expenses
+View platform revenue
+View token usage
+```
+
+---
+
+## Financial Reports
+
+Because the system stores:
+
+```text
+provider cost
+user cost
+token usage
+payments
+```
+
+future reporting can calculate:
+
+```text
+Revenue
+Provider Expenses
+Gross Profit
+Profit Margin
+Cost per User
+Cost per Model
+Cost per Plan
+```
+
+---
+
+## Automated Tests
+
+Recommended future testing:
+
+```text
+Feature Tests
+Unit Tests
+Stripe Webhook Tests
+Usage Limit Tests
+Attachment Tests
+Model Switching Tests
+Authorization Tests
+```
+
+---
+
+# Project Structure
+
+Important project areas:
+
+```text
+app/
+├── Exceptions/
+│
+├── Http/
+│   ├── Controllers/
+│   │   ├── ChatController.php
+│   │   ├── ConversationController.php
+│   │   ├── FileController.php
+│   │   ├── UsageController.php
+│   │   ├── StripeWebhookController.php
+│   │   └── ...
+│   │
+│   └── Middleware/
+│       └── FeatureMiddleware.php
+│
+├── Models/
+│   ├── User.php
+│   ├── Subscription.php
+│   ├── SubscriptionPlan.php
+│   ├── AIModel.php
+│   ├── ModelCost.php
+│   ├── ModelUsage.php
+│   ├── Conversation.php
+│   ├── Message.php
+│   ├── File.php
+│   ├── Feature.php
+│   └── ModelCapability.php
+│
+└── Services/
+    └── AI/
+        ├── AIService.php
+        ├── AIProviderInterface.php
+        ├── OpenAIService.php
+        ├── GoogleAIService.php
+        ├── ClaudeService.php
+        ├── DeepSeekService.php
+        └── UsageService.php
+```
+
+---
+
+# Main Database Relationships
+
+```text
+User
+├── Subscriptions
+├── Conversations
+├── Files
+├── Payments
+└── ModelUsages
+
+
+SubscriptionPlan
+├── Models
+│     └── subscription_plan_model
+│
+└── Features
+      └── subscription_plan_feature
+
+
+AIModel
+├── ModelCosts
+├── ModelCapabilities
+└── ModelUsages
+
+
+Conversation
+├── Messages
+└── Files
+
+
+Message
+└── Files
+      └── message_file
+```
+
+---
+
+# Environment Variables
+
+Example `.env` configuration:
 
 ```env
-APP_NAME=
+APP_NAME="Chat Aggregator"
+APP_ENV=local
 APP_KEY=
+APP_DEBUG=true
+APP_URL=http://127.0.0.1:8000
 
-DB_CONNECTION=
-DB_HOST=
-DB_PORT=
-DB_DATABASE=
-DB_USERNAME=
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=chat_aggregator
+DB_USERNAME=root
 DB_PASSWORD=
+
+
+CACHE_STORE=redis
+
+REDIS_CLIENT=phpredis
+REDIS_HOST=127.0.0.1
+REDIS_PASSWORD=null
+REDIS_PORT=6379
+
 
 STRIPE_KEY=
 STRIPE_SECRET=
 STRIPE_WEBHOOK_SECRET=
 
+
 OPENAI_API_KEY=
+
 GEMINI_API_KEY=
+
 ANTHROPIC_API_KEY=
+
 DEEPSEEK_API_KEY=
+```
+
+The exact environment variable names should match the project's service configuration files.
+
+Never commit real API keys to Git.
+
+---
+
+# Important Security Note
+
+Do not commit:
+
+```text
+.env
+API Keys
+Stripe Secret Keys
+Webhook Secrets
+Database Passwords
+Private certificates
+```
+
+Ensure `.env` is included in `.gitignore`.
+
+---
+
+# Production Preparation
+
+Before production deployment:
+
+```env
+APP_ENV=production
+APP_DEBUG=false
+```
+
+Then run:
+
+```bash
+php artisan optimize
+```
+
+Recommended production services include:
+
+```text
+Nginx
+PHP-FPM
+MySQL
+Redis
+HTTPS
+Queue Worker
+Supervisor/Systemd
+```
+
+Also configure Stripe's production webhook endpoint to:
+
+```text
+https://YOUR_DOMAIN/api/stripe/webhook
 ```
 
 ---
 
-# Future Development
+# Current Development Stage
 
-The next major part of the project is AI usage and cost tracking.
+The backend MVP is considered complete for the core Chat Aggregator workflow.
 
-The planned flow is:
+The next main development phase is the React frontend.
+
+The frontend will integrate:
 
 ```text
-User
- ↓
-Subscription Plan
- ↓
-Allowed AI Models
- ↓
-Chat Request
- ↓
-Input Tokens
-Output Tokens
- ↓
-Provider Cost
- ↓
-Application Price
- ↓
-Profit
+Authentication
+Subscription selection
+Model selector
+Conversation sidebar
+Chat messages
+Attachment uploader
+Image preview
+Document display
+Usage indicators
+Payment history
+Billing management
 ```
-
-Future features may include:
-
-- AI usage tracking.
-- Token usage tracking.
-- Provider cost calculation.
-- Profit calculation.
-- Usage limits.
-- File uploads.
-- Image uploads.
-- AI vision.
-- Usage dashboards.
-- Admin billing dashboard.
-- Advanced analytics.
 
 ---
 
 # License
 
-This project is currently under development.
+Add the appropriate project license before publishing the repository.
+
+Example:
+
+```text
+MIT License
+```
+
+---
+
+# Author
+
+Developed as a multi-provider AI Chat Aggregator platform using Laravel.
+
+---
+
+# Summary
+
+Chat Aggregator provides a unified backend for interacting with multiple AI models while managing:
+
+```text
+Users
+Subscriptions
+Plans
+Features
+Models
+Attachments
+Conversations
+AI requests
+Token usage
+Costs
+Payments
+Billing cycles
+```
+
+The system is structured so new AI providers, models, subscription plans, features, and pricing strategies can be added without redesigning the main application architecture.

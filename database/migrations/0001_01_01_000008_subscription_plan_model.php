@@ -20,8 +20,8 @@ return new class extends Migration
                 ->cascadeOnDelete();
 
             // Price charged to the user per token
-            $table->decimal('input_price', 12, 8)->default(0);
-            $table->decimal('output_price', 12, 8)->default(0);
+            $table->decimal('input_price',  20, 15)->default(0);
+            $table->decimal('output_price', 20, 15)->default(0);
 
             $table->boolean('status')->default(true);
 

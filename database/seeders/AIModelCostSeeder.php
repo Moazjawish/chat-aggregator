@@ -1,5 +1,4 @@
 <?php
-
 namespace Database\Seeders;
 
 use App\Models\AIModel;
@@ -12,23 +11,23 @@ class AIModelCostSeeder extends Seeder
     {
         $costs = [
             'gpt-5.6' => [
-                'input_cost' => 0.00000200,
-                'output_cost' => 0.00000800,
+                'input_cost' => 1.25,
+                'output_cost' => 10.00,
             ],
 
-            'gemini-2.5-pro' => [
-                'input_cost' => 0.00000125,
-                'output_cost' => 0.00000500,
+            'gemini-3.6-flash' => [
+                'input_cost' => 1.25,
+                'output_cost' => 5.00,
             ],
 
             'claude-sonnet' => [
-                'input_cost' => 0.00000300,
-                'output_cost' => 0.00001500,
+                'input_cost' => 3.00,
+                'output_cost' => 15.00,
             ],
 
             'deepseek-chat' => [
-                'input_cost' => 0.00000027,
-                'output_cost' => 0.00000110,
+                'input_cost' => 0.27,
+                'output_cost' => 1.10,
             ],
         ];
 

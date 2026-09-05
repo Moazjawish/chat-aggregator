@@ -8,9 +8,9 @@ class Subscription extends CashierSubscription
 {
     protected $table = 'subscriptions';
 
-    protected $fillable = [
+    protected $fillable =
+    [
         'user_id',
-        'subscription_plan_id',
         'type',
         'stripe_id',
         'stripe_status',
@@ -18,7 +18,15 @@ class Subscription extends CashierSubscription
         'quantity',
         'trial_ends_at',
         'ends_at',
+        'subscription_plan_id',
+        'pending_subscription_plan_id',
     ];
+
+    protected $casts = [
+    'current_period_start' => 'datetime',
+    'current_period_end' => 'datetime',
+];
+
 
     public function subscriptionPlan()
     {
@@ -32,4 +40,13 @@ class Subscription extends CashierSubscription
     {
         return $this->hasMany(Payment::class);
     }
+    public function modelUsages()
+    {
+        return $this->hasMany(ModelUsage::class);
+    }
+    public function pendingSubscriptionPlan()
+    {
+        return $this->belongsTo( SubscriptionPlan::class, 'pending_subscription_plan_id' );
+    }
+
 }

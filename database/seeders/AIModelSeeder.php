@@ -1,10 +1,7 @@
 <?php
-
 namespace Database\Seeders;
 
 use App\Models\AIModel;
-use App\Models\User;
-use Database\Factories\UserFactory;
 use Illuminate\Database\Seeder;
 
 class AIModelSeeder extends Seeder
@@ -22,9 +19,9 @@ class AIModelSeeder extends Seeder
                 'status' => true,
             ],
             [
-                'name' => 'Gemini 2.5 Pro',
-                'provider' => 'google',
-                'model_key' => 'gemini-2.5-pro',
+                'name' => 'Gemini 3.6 Flash',
+                'provider' => 'gemini',
+                'model_key' => 'gemini-3.6-flash',
                 'status' => true,
             ],
             [
@@ -33,6 +30,7 @@ class AIModelSeeder extends Seeder
                 'model_key' => 'claude-sonnet',
                 'status' => true,
             ],
+
             [
                 'name' => 'DeepSeek Chat',
                 'provider' => 'deepseek',
@@ -40,6 +38,22 @@ class AIModelSeeder extends Seeder
                 'status' => true,
             ],
         ];
+
+        /*
+        |--------------------------------------------------------------------------
+        | Disable old Gemini model
+        |--------------------------------------------------------------------------
+        */
+
+        AIModel::where('model_key', 'gemini-2.5-flash')
+        ->update([
+            'status' => false,
+        ]);
+        /*
+        |--------------------------------------------------------------------------
+        | Create or update current models
+        |--------------------------------------------------------------------------
+        */
 
         foreach ($models as $model) {
             AIModel::updateOrCreate(

@@ -15,7 +15,7 @@ return new class extends Migration
             $table->text('description')->nullable();
 
             // Subscription price paid by the user
-            $table->decimal('price', 10, 2)->default(0);
+            $table->decimal('price', 20, 15)->default(0);
 
             $table->string('currency', 3)->default('usd');
 

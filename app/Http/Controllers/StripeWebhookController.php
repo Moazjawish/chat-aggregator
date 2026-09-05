@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\Payment;
@@ -14,83 +13,477 @@ use Throwable;
 class StripeWebhookController extends CashierWebhookController
 {
     /**
-     * Handle customer.subscription.created
-     *
-     * Cashier creates the local subscription.
-     * We additionally attach our local SubscriptionPlan.
+     * Handle subscription creation.
      */
     public function handleCustomerSubscriptionCreated(array $payload)
     {
-        $response = parent::handleCustomerSubscriptionCreated($payload);
+        /*
+        |--------------------------------------------------------------------------
+        | Let Cashier process subscription first
+        |--------------------------------------------------------------------------
+        */
+
+        $response =
+            parent::handleCustomerSubscriptionCreated(
+                $payload
+            );
 
         try {
-            $stripeSubscription = $payload['data']['object'];
 
-            $subscription = Subscription::where(
-                'stripe_id',
+            $stripeSubscription =
+                $payload['data']['object'];
+
+            $stripeSubscriptionId =
                 $stripeSubscription['id']
-            )->first();
+                ?? null;
 
-            if (! $subscription) {
-                Log::warning('Subscription not found after Cashier processing.', [
-                    'stripe_subscription_id' => $stripeSubscription['id'],
-                ]);
+            if (! $stripeSubscriptionId) {
+
+                Log::warning(
+                    'customer.subscription.created has no subscription ID.',
+                    [
+                        'event_id' =>
+                            $payload['id']
+                            ?? null,
+                    ]
+                );
 
                 return $response;
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | Find local subscription created by Cashier
+            |--------------------------------------------------------------------------
+            */
+
+            $subscription =
+                Subscription::query()
+                    ->where(
+                        'stripe_id',
+                        $stripeSubscriptionId
+                    )
+                    ->first();
+
+            if (! $subscription) {
+
+                Log::warning(
+                    'Subscription not found after Cashier processing.',
+                    [
+                        'stripe_subscription_id' =>
+                            $stripeSubscriptionId,
+                    ]
+                );
+
+                return $response;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Link local subscription plan
+            |--------------------------------------------------------------------------
+            */
+
             $subscriptionPlanId =
-                $stripeSubscription['metadata']['subscription_plan_id'] ?? null;
+                $stripeSubscription['metadata']
+                    ['subscription_plan_id']
+                ?? null;
 
             if ($subscriptionPlanId) {
+
                 $subscription->update([
-                    'subscription_plan_id' => (int) $subscriptionPlanId,
+                    'subscription_plan_id' =>
+                        (int) $subscriptionPlanId,
                 ]);
             }
 
-            Log::info('Subscription created and linked to plan.', [
-                'subscription_id' => $subscription->id,
-                'stripe_subscription_id' => $subscription->stripe_id,
-                'subscription_plan_id' => $subscription->subscription_plan_id,
-            ]);
+            /*
+            |--------------------------------------------------------------------------
+            | Synchronize billing period
+            |--------------------------------------------------------------------------
+            */
+
+            $this->updateSubscriptionBillingPeriod(
+                subscription: $subscription,
+                stripeSubscription: $stripeSubscription
+            );
+
+            $subscription->refresh();
+
+            Log::info(
+                'Subscription created and linked to plan.',
+                [
+                    'subscription_id' =>
+                        $subscription->id,
+
+                    'stripe_subscription_id' =>
+                        $subscription->stripe_id,
+
+                    'subscription_plan_id' =>
+                        $subscription
+                            ->subscription_plan_id,
+
+                    'current_period_start' =>
+                        $subscription
+                            ->current_period_start
+                            ?->toDateTimeString(),
+
+                    'current_period_end' =>
+                        $subscription
+                            ->current_period_end
+                            ?->toDateTimeString(),
+                ]
+            );
 
         } catch (Throwable $e) {
-            Log::error('Failed to process subscription.created.', [
-                'error' => $e->getMessage(),
-                'stripe_subscription_id' =>
-                    $payload['data']['object']['id'] ?? null,
-            ]);
+
+            Log::error(
+                'Failed to process subscription.created.',
+                [
+                    'error' =>
+                        $e->getMessage(),
+
+                    'file' =>
+                        $e->getFile(),
+
+                    'line' =>
+                        $e->getLine(),
+
+                    'stripe_subscription_id' =>
+                        $payload['data']['object']['id']
+                        ?? null,
+                ]
+            );
         }
 
         return $response;
     }
 
-    public function handleCustomerSubscriptionUpdated(array $payload)
-    {
+    /**
+     * Handle subscription updates.
+     *
+     * Important:
+     * We allow Cashier to sync Stripe fields,
+     * but we DO NOT activate pending local plan here.
+     */
+    protected function handleCustomerSubscriptionUpdated(
+        array $payload
+    ): void {
+
         /*
         |--------------------------------------------------------------------------
-        | Let Cashier update the standard subscription fields first
+        | Let Cashier sync its own fields first
         |--------------------------------------------------------------------------
         */
 
-        $response = parent::handleCustomerSubscriptionUpdated($payload);
+        parent::handleCustomerSubscriptionUpdated(
+            $payload
+        );
 
         try {
 
-            $stripeSubscription = $payload['data']['object'];
+            $stripeSubscription =
+                $payload['data']['object'];
 
-            /*
-            |--------------------------------------------------------------------------
-            | Get Stripe subscription ID
-            |--------------------------------------------------------------------------
-            */
-
-            $stripeSubscriptionId = $stripeSubscription['id'] ?? null;
+            $stripeSubscriptionId =
+                $stripeSubscription['id']
+                ?? null;
 
             if (! $stripeSubscriptionId) {
 
                 Log::warning(
-                    'Subscription updated webhook has no Stripe subscription ID.'
+                    'customer.subscription.updated has no subscription ID.',
+                    [
+                        'event_id' =>
+                            $payload['id']
+                            ?? null,
+                    ]
+                );
+
+                return;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Stripe price
+            |--------------------------------------------------------------------------
+            |
+            | Used here for logging only.
+            |
+            */
+
+            $stripePriceId =
+                $stripeSubscription['items']
+                    ['data'][0]
+                    ['price']['id']
+                ?? null;
+
+            /*
+            |--------------------------------------------------------------------------
+            | Find local subscription
+            |--------------------------------------------------------------------------
+            */
+
+            $subscription =
+                Subscription::query()
+                    ->where(
+                        'stripe_id',
+                        $stripeSubscriptionId
+                    )
+                    ->first();
+
+            if (! $subscription) {
+
+                Log::warning(
+                    'Local subscription not found after subscription update.',
+                    [
+                        'stripe_subscription_id' =>
+                            $stripeSubscriptionId,
+
+                        'stripe_price_id' =>
+                            $stripePriceId,
+                    ]
+                );
+
+                return;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Synchronize billing period
+            |--------------------------------------------------------------------------
+            |
+            | This is important for renewals.
+            |
+            | When Stripe moves the subscription into a new billing cycle,
+            | these values change.
+            |
+            */
+
+            $this->updateSubscriptionBillingPeriod(
+                subscription: $subscription,
+                stripeSubscription: $stripeSubscription
+            );
+
+            $subscription->refresh();
+
+            /*
+            |--------------------------------------------------------------------------
+            | DO NOT activate plan here
+            |--------------------------------------------------------------------------
+            |
+            | customer.subscription.updated does not guarantee
+            | successful payment.
+            |
+            | pending_subscription_plan_id stays pending until:
+            |
+            | invoice.payment_succeeded
+            |
+            */
+
+            Log::info(
+                'Stripe subscription updated without activating local plan.',
+                [
+                    'subscription_id' =>
+                        $subscription->id,
+
+                    'stripe_subscription_id' =>
+                        $stripeSubscriptionId,
+
+                    'stripe_status' =>
+                        $stripeSubscription['status']
+                        ?? null,
+
+                    'stripe_price_id' =>
+                        $stripePriceId,
+
+                    'current_subscription_plan_id' =>
+                        $subscription
+                            ->subscription_plan_id,
+
+                    'pending_subscription_plan_id' =>
+                        $subscription
+                            ->pending_subscription_plan_id,
+
+                    'current_period_start' =>
+                        $subscription
+                            ->current_period_start
+                            ?->toDateTimeString(),
+
+                    'current_period_end' =>
+                        $subscription
+                            ->current_period_end
+                            ?->toDateTimeString(),
+                ]
+            );
+
+        } catch (Throwable $e) {
+
+            Log::error(
+                'Failed to process customer.subscription.updated.',
+                [
+                    'error' =>
+                        $e->getMessage(),
+
+                    'file' =>
+                        $e->getFile(),
+
+                    'line' =>
+                        $e->getLine(),
+
+                    'stripe_subscription_id' =>
+                        $payload['data']['object']['id']
+                        ?? null,
+                ]
+            );
+        }
+    }
+
+    /**
+     * Handle deleted/canceled subscription.
+     */
+    public function handleCustomerSubscriptionDeleted(
+        array $payload
+    ) {
+
+        $response =
+            parent::handleCustomerSubscriptionDeleted(
+                $payload
+            );
+
+        try {
+
+            $stripeSubscription =
+                $payload['data']['object'];
+
+            $stripeSubscriptionId =
+                $stripeSubscription['id']
+                ?? null;
+
+            if (! $stripeSubscriptionId) {
+                return $response;
+            }
+
+            $subscription =
+                Subscription::query()
+                    ->where(
+                        'stripe_id',
+                        $stripeSubscriptionId
+                    )
+                    ->first();
+
+            if (! $subscription) {
+
+                Log::warning(
+                    'Subscription not found after subscription.deleted.',
+                    [
+                        'stripe_subscription_id' =>
+                            $stripeSubscriptionId,
+                    ]
+                );
+
+                return $response;
+            }
+
+            Log::info(
+                'Subscription deleted/canceled.',
+                [
+                    'subscription_id' =>
+                        $subscription->id,
+
+                    'stripe_subscription_id' =>
+                        $subscription->stripe_id,
+
+                    'stripe_status' =>
+                        $subscription->stripe_status,
+
+                    'ends_at' =>
+                        $subscription->ends_at,
+                ]
+            );
+
+        } catch (Throwable $e) {
+
+            Log::error(
+                'Failed to process subscription.deleted.',
+                [
+                    'error' =>
+                        $e->getMessage(),
+
+                    'file' =>
+                        $e->getFile(),
+
+                    'line' =>
+                        $e->getLine(),
+
+                    'stripe_subscription_id' =>
+                        $payload['data']['object']['id']
+                        ?? null,
+                ]
+            );
+        }
+
+        return $response;
+    }
+
+    /**
+     * Handle successful invoice payment.
+     */
+    public function handleInvoicePaymentSucceeded(
+        array $payload
+    ) {
+
+        Log::info(
+            'invoice.payment_succeeded received.',
+            [
+                'event_id' =>
+                    $payload['id']
+                    ?? null,
+
+                'invoice_id' =>
+                    $payload['data']['object']['id']
+                    ?? null,
+            ]
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Let Cashier handle invoice first
+        |--------------------------------------------------------------------------
+        */
+
+        $response =
+            parent::handleInvoicePaymentSucceeded(
+                $payload
+            );
+
+        try {
+
+            $invoice =
+                $payload['data']['object'];
+
+            /*
+            |--------------------------------------------------------------------------
+            | Resolve Stripe subscription ID
+            |--------------------------------------------------------------------------
+            */
+
+            $stripeSubscriptionId =
+                $invoice['parent']
+                    ['subscription_details']
+                    ['subscription']
+                ?? $invoice['subscription']
+                ?? null;
+
+            if (! $stripeSubscriptionId) {
+
+                Log::warning(
+                    'Successful invoice has no subscription.',
+                    [
+                        'invoice_id' =>
+                            $invoice['id']
+                            ?? null,
+                    ]
                 );
 
                 return $response;
@@ -102,92 +495,364 @@ class StripeWebhookController extends CashierWebhookController
             |--------------------------------------------------------------------------
             */
 
-            $subscription = Subscription::where(
-                'stripe_id',
-                $stripeSubscriptionId
-            )->first();
+            $subscription =
+                Subscription::query()
+                    ->where(
+                        'stripe_id',
+                        $stripeSubscriptionId
+                    )
+                    ->first();
 
             if (! $subscription) {
 
                 Log::warning(
-                    'Local subscription not found for subscription.updated.',
+                    'Subscription not found for successful payment.',
                     [
-                        'stripe_subscription_id' => $stripeSubscriptionId,
+                        'stripe_subscription_id' =>
+                            $stripeSubscriptionId,
+
+                        'stripe_invoice_id' =>
+                            $invoice['id']
+                            ?? null,
                     ]
                 );
 
                 return $response;
             }
 
-            $stripePriceId =
-                $stripeSubscription['items']['data'][0]['price']['id']
+            /*
+            |--------------------------------------------------------------------------
+            | Get latest Stripe subscription
+            |--------------------------------------------------------------------------
+            |
+            | We retrieve it directly from Stripe instead of relying only
+            | on invoice payload.
+            |
+            */
+
+            $stripeSubscriptionObject =
+                $subscription
+                    ->asStripeSubscription();
+
+            $stripeSubscription =
+                $stripeSubscriptionObject
+                    ->toArray();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Synchronize billing period
+            |--------------------------------------------------------------------------
+            */
+
+            $this->updateSubscriptionBillingPeriod(
+                subscription: $subscription,
+                stripeSubscription: $stripeSubscription
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Get current Stripe Price
+            |--------------------------------------------------------------------------
+            */
+
+            $currentStripePriceId =
+                $stripeSubscription['items']
+                    ['data'][0]
+                    ['price']['id']
                 ?? null;
 
-            if (! $stripePriceId) {
+            /*
+            |--------------------------------------------------------------------------
+            | Extract Payment Intent ID
+            |--------------------------------------------------------------------------
+            */
 
-                Log::warning(
-                    'Subscription updated webhook has no Stripe Price ID.',
-                    [
-                        'stripe_subscription_id' => $stripeSubscriptionId,
-                    ]
-                );
+            $paymentIntentId = null;
 
-                return $response;
+            if (
+                is_string(
+                    $invoice['payment_intent']
+                    ?? null
+                )
+            ) {
+
+                $paymentIntentId =
+                    $invoice['payment_intent'];
+
+            } elseif (
+                is_array(
+                    $invoice['payment_intent']
+                    ?? null
+                )
+            ) {
+
+                $paymentIntentId =
+                    $invoice['payment_intent']['id']
+                    ?? null;
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | Record payment
+            |--------------------------------------------------------------------------
+            */
 
-            $plan = SubscriptionPlan::where(
-                'stripe_price_id',
-                $stripePriceId
-            )->first();
+            $amountPaid =
+                ((int) (
+                    $invoice['amount_paid']
+                    ?? 0
+                )) / 100;
 
-            if (! $plan) {
-
-                Log::warning(
-                    'Subscription plan not found for Stripe Price.',
-                    [
-                        'stripe_subscription_id' => $stripeSubscriptionId,
-
-                        'stripe_price_id' => $stripePriceId,
-                    ]
+            $currency =
+                strtolower(
+                    $invoice['currency']
+                    ?? 'usd'
                 );
 
-                return $response;
-            }
+            $payment =
+                Payment::query()
+                    ->updateOrCreate(
+                        [
+                            'stripe_invoice_id' =>
+                                $invoice['id'],
+                        ],
+                        [
+                            'user_id' =>
+                                $subscription->user_id,
 
-            $oldPlanId = $subscription->subscription_plan_id;
-            $subscription->update([
-                'subscription_plan_id' => $plan->id,
+                            'subscription_id' =>
+                                $subscription->id,
 
-                'stripe_price' => $stripePriceId,
-            ]);
+                            'stripe_payment_intent_id' =>
+                                $paymentIntentId,
 
+                            'amount' =>
+                                $amountPaid,
+
+                            'currency' =>
+                                $currency,
+
+                            'status' =>
+                                'paid',
+
+                            'paid_at' =>
+                                now(),
+                        ]
+                    );
 
             Log::info(
-                'Subscription plan synchronized successfully.',
+                'Payment recorded successfully.',
                 [
-                    'subscription_id' => $subscription->id,
-                    'stripe_subscription_id' => $stripeSubscriptionId,
-                    'old_plan_id' => $oldPlanId,
-                    'new_plan_id' => $plan->id,
-                    'plan_name' => $plan->name,
-                    'stripe_price_id' => $stripePriceId,
+                    'payment_id' =>
+                        $payment->id,
+
+                    'subscription_id' =>
+                        $subscription->id,
+
+                    'stripe_invoice_id' =>
+                        $invoice['id']
+                        ?? null,
+
+                    'stripe_payment_intent_id' =>
+                        $paymentIntentId,
+
+                    'amount' =>
+                        $amountPaid,
+
+                    'currency' =>
+                        $currency,
                 ]
             );
 
-            Log::info('customer.subscription.updated received', [
-            'payload' => $payload,
-            ]);
+            /*
+            |--------------------------------------------------------------------------
+            | Activate pending plan
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                $subscription
+                    ->pending_subscription_plan_id
+            ) {
+
+                $oldPlanId =
+                    $subscription
+                        ->subscription_plan_id;
+
+                $newPlanId =
+                    $subscription
+                        ->pending_subscription_plan_id;
+
+                /*
+                |--------------------------------------------------------------------------
+                | Find pending plan
+                |--------------------------------------------------------------------------
+                */
+
+                $newPlan =
+                    SubscriptionPlan::query()
+                        ->where(
+                            'id',
+                            $newPlanId
+                        )
+                        ->where(
+                            'status',
+                            true
+                        )
+                        ->first();
+
+                if (! $newPlan) {
+
+                    Log::error(
+                        'Pending subscription plan not found or inactive.',
+                        [
+                            'subscription_id' =>
+                                $subscription->id,
+
+                            'pending_subscription_plan_id' =>
+                                $newPlanId,
+
+                            'stripe_invoice_id' =>
+                                $invoice['id']
+                                ?? null,
+                        ]
+                    );
+
+                    return $response;
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | Verify Stripe price
+                |--------------------------------------------------------------------------
+                |
+                | Payment succeeded alone is not enough.
+                |
+                | We also verify that Stripe subscription now points
+                | to the expected price of the pending plan.
+                |
+                */
+
+                if (
+                    ! $currentStripePriceId
+                    ||
+                    $currentStripePriceId
+                    !==
+                    $newPlan->stripe_price_id
+                ) {
+
+                    Log::warning(
+                        'Stripe price does not match pending plan.',
+                        [
+                            'subscription_id' =>
+                                $subscription->id,
+
+                            'pending_subscription_plan_id' =>
+                                $newPlan->id,
+
+                            'expected_stripe_price_id' =>
+                                $newPlan
+                                    ->stripe_price_id,
+
+                            'current_stripe_price_id' =>
+                                $currentStripePriceId,
+
+                            'stripe_invoice_id' =>
+                                $invoice['id']
+                                ?? null,
+                        ]
+                    );
+
+                    return $response;
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | Activate new local plan
+                |--------------------------------------------------------------------------
+                */
+
+                $subscription->update([
+                    'subscription_plan_id' =>
+                        $newPlan->id,
+
+                    'pending_subscription_plan_id' =>
+                        null,
+                ]);
+
+                Log::info(
+                    'Pending subscription plan activated successfully.',
+                    [
+                        'subscription_id' =>
+                            $subscription->id,
+
+                        'old_subscription_plan_id' =>
+                            $oldPlanId,
+
+                        'new_subscription_plan_id' =>
+                            $newPlan->id,
+
+                        'stripe_price_id' =>
+                            $currentStripePriceId,
+
+                        'stripe_invoice_id' =>
+                            $invoice['id']
+                            ?? null,
+                    ]
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Final log
+            |--------------------------------------------------------------------------
+            */
+
+            $subscription->refresh();
+
+            Log::info(
+                'Successful invoice fully processed.',
+                [
+                    'subscription_id' =>
+                        $subscription->id,
+
+                    'subscription_plan_id' =>
+                        $subscription
+                            ->subscription_plan_id,
+
+                    'pending_subscription_plan_id' =>
+                        $subscription
+                            ->pending_subscription_plan_id,
+
+                    'current_period_start' =>
+                        $subscription
+                            ->current_period_start
+                            ?->toDateTimeString(),
+
+                    'current_period_end' =>
+                        $subscription
+                            ->current_period_end
+                            ?->toDateTimeString(),
+                ]
+            );
+
         } catch (Throwable $e) {
 
             Log::error(
-                'Failed to synchronize subscription plan.',
+                'Failed to process successful invoice payment.',
                 [
-                    'error' => $e->getMessage(),
+                    'error' =>
+                        $e->getMessage(),
 
-                    'file' => $e->getFile(),
+                    'file' =>
+                        $e->getFile(),
 
-                    'line' => $e->getLine(),
+                    'line' =>
+                        $e->getLine(),
+
+                    'invoice_id' =>
+                        $payload['data']['object']['id']
+                        ?? null,
                 ]
             );
         }
@@ -196,356 +861,614 @@ class StripeWebhookController extends CashierWebhookController
     }
 
     /**
-     * Handle customer.subscription.deleted
-     *
-     * Cashier marks the subscription as canceled.
+     * Handle failed invoice payment.
      */
-    public function handleCustomerSubscriptionDeleted(array $payload)
-    {
-        $response = parent::handleCustomerSubscriptionDeleted($payload);
+    public function handleInvoicePaymentFailed(
+        array $payload
+    ) {
 
         try {
-            $stripeSubscription = $payload['data']['object'];
 
-            $subscription = Subscription::where(
-                'stripe_id',
-                $stripeSubscription['id']
-            )->first();
-
-            if (! $subscription) {
-                Log::warning('Subscription not found after subscription.deleted.', [
-                    'stripe_subscription_id' => $stripeSubscription['id'],
-                ]);
-
-                return $response;
-            }
-
-            Log::info('Subscription deleted/canceled.', [
-                'subscription_id' => $subscription->id,
-                'stripe_subscription_id' => $subscription->stripe_id,
-                'stripe_status' => $subscription->stripe_status,
-                'ends_at' => $subscription->ends_at,
-            ]);
-
-        } catch (Throwable $e) {
-            Log::error('Failed to process subscription.deleted.', [
-                'error' => $e->getMessage(),
-                'stripe_subscription_id' =>
-                    $payload['data']['object']['id'] ?? null,
-            ]);
-        }
-
-        return $response;
-    }
-
-
-    public function handleInvoicePaymentSucceeded(array $payload)
-    {
-        Log::info('invoice.payment_succeeded received.', [
-            'event_id' => $payload['id'] ?? null,
-            'invoice_id' => $payload['data']['object']['id'] ?? null,
-        ]);
-
-        $response = parent::handleInvoicePaymentSucceeded($payload);
-
-        try {
-            $invoice = $payload['data']['object'];
+            $invoice =
+                $payload['data']['object'];
 
             /*
-             * Cashier 16 / current Stripe API structure:
-             *
-             * invoice.parent.subscription_details.subscription
-             *
-             * We keep a fallback to the older "subscription"
-             * property for compatibility.
-             */
+            |--------------------------------------------------------------------------
+            | Resolve Stripe subscription ID
+            |--------------------------------------------------------------------------
+            */
+
             $stripeSubscriptionId =
-                $invoice['parent']['subscription_details']['subscription']
+                $invoice['parent']
+                    ['subscription_details']
+                    ['subscription']
                 ?? $invoice['subscription']
                 ?? null;
 
-            Log::info('Invoice data.', [
-                'invoice_id' => $invoice['id'] ?? null,
-                'subscription' => $stripeSubscriptionId,
-                'customer' => $invoice['customer'] ?? null,
-                'amount_paid' => $invoice['amount_paid'] ?? null,
-                'currency' => $invoice['currency'] ?? null,
-                'payment_intent' => $invoice['payment_intent'] ?? null,
-            ]);
-
-            if (! $stripeSubscriptionId) {
-                Log::warning('Invoice has no subscription.', [
-                    'invoice_id' => $invoice['id'] ?? null,
-                ]);
-
-                return $response;
-            }
-
-            $subscription = Subscription::where(
-                'stripe_id',
-                $stripeSubscriptionId
-            )->first();
-
-            if (! $subscription) {
-                Log::warning(
-                    'Subscription not found for successful payment.',
-                    [
-                        'stripe_subscription_id' => $stripeSubscriptionId,
-                        'stripe_invoice_id' => $invoice['id'] ?? null,
-                    ]
-                );
-
-                return $response;
-            }
-
-            /*
-             * payment_intent can be either:
-             *
-             * "pi_xxx"
-             *
-             * or, depending on Stripe response expansion,
-             * an object containing an "id".
-             */
-            $paymentIntentId = null;
-
-            if (is_string($invoice['payment_intent'] ?? null)) {
-                $paymentIntentId = $invoice['payment_intent'];
-            } elseif (is_array($invoice['payment_intent'] ?? null)) {
-                $paymentIntentId =
-                    $invoice['payment_intent']['id'] ?? null;
-            }
-
-            /*
-             * Checkout Session is not normally stored directly
-             * inside the invoice object.
-             *
-             * Therefore we leave it null here unless another part
-             * of the application has already associated it.
-             */
-
-            $amountPaid = ($invoice['amount_paid'] ?? 0) / 100;
-
-            $currency = $invoice['currency'] ?? 'usd';
-
-            $payment = Payment::updateOrCreate(
+            Log::warning(
+                'invoice.payment_failed received.',
                 [
-                    'stripe_invoice_id' => $invoice['id'],
-                ],
-                [
-                    'user_id' => $subscription->user_id,
-                    'subscription_id' => $subscription->id,
-                    'stripe_payment_intent_id' => $paymentIntentId,
-                    'amount' => $amountPaid,
-                    'currency' => $currency,
-                    'status' => 'paid',
-                    'paid_at' => now(),
+                    'event_id' =>
+                        $payload['id']
+                        ?? null,
+
+                    'invoice_id' =>
+                        $invoice['id']
+                        ?? null,
+
+                    'subscription' =>
+                        $stripeSubscriptionId,
+
+                    'amount_due' =>
+                        $invoice['amount_due']
+                        ?? null,
+
+                    'currency' =>
+                        $invoice['currency']
+                        ?? null,
                 ]
             );
 
-            Log::info('Payment recorded successfully.', [
-                'payment_id' => $payment->id,
-                'subscription_id' => $subscription->id,
-                'stripe_invoice_id' => $invoice['id'],
-                'stripe_payment_intent_id' => $paymentIntentId,
-                'amount' => $amountPaid,
-                'currency' => $currency,
-            ]);
-
-        } catch (Throwable $e) {
-            Log::error('Failed to record successful payment.', [
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'invoice_id' =>
-                    $payload['data']['object']['id'] ?? null,
-            ]);
-        }
-
-        return $response;
-    }
-
-
-    public function handleInvoicePaymentFailed(array $payload)
-    {
-        try {
-            $invoice = $payload['data']['object'];
-
-            /*
-             * Current Stripe structure.
-             */
-            $stripeSubscriptionId =
-                $invoice['parent']['subscription_details']['subscription']
-                ?? $invoice['subscription']
-                ?? null;
-
-            Log::warning('invoice.payment_failed received.', [
-                'event_id' => $payload['id'] ?? null,
-                'invoice_id' => $invoice['id'] ?? null,
-                'subscription' => $stripeSubscriptionId,
-                'amount_due' => $invoice['amount_due'] ?? null,
-                'currency' => $invoice['currency'] ?? null,
-            ]);
-
             if (! $stripeSubscriptionId) {
-                Log::warning('Failed-payment invoice has no subscription.', [
-                    'invoice_id' => $invoice['id'] ?? null,
-                ]);
 
-                return new Response('Webhook Handled', 200);
+                Log::warning(
+                    'Failed-payment invoice has no subscription.',
+                    [
+                        'invoice_id' =>
+                            $invoice['id']
+                            ?? null,
+                    ]
+                );
+
+                return new Response(
+                    'Webhook Handled',
+                    200
+                );
             }
 
-            $subscription = Subscription::where(
-                'stripe_id',
-                $stripeSubscriptionId
-            )->first();
+            /*
+            |--------------------------------------------------------------------------
+            | Find local subscription
+            |--------------------------------------------------------------------------
+            */
+
+            $subscription =
+                Subscription::query()
+                    ->where(
+                        'stripe_id',
+                        $stripeSubscriptionId
+                    )
+                    ->first();
 
             if (! $subscription) {
+
                 Log::warning(
                     'Subscription not found for failed payment.',
                     [
-                        'stripe_subscription_id' => $stripeSubscriptionId,
-                        'stripe_invoice_id' => $invoice['id'] ?? null,
+                        'stripe_subscription_id' =>
+                            $stripeSubscriptionId,
+
+                        'stripe_invoice_id' =>
+                            $invoice['id']
+                            ?? null,
                     ]
                 );
 
-                return new Response('Webhook Handled', 200);
+                return new Response(
+                    'Webhook Handled',
+                    200
+                );
             }
 
-            $payment = Payment::updateOrCreate(
+            /*
+            |--------------------------------------------------------------------------
+            | Extract Payment Intent
+            |--------------------------------------------------------------------------
+            */
+
+            $paymentIntentId = null;
+
+            if (
+                is_string(
+                    $invoice['payment_intent']
+                    ?? null
+                )
+            ) {
+
+                $paymentIntentId =
+                    $invoice['payment_intent'];
+
+            } elseif (
+                is_array(
+                    $invoice['payment_intent']
+                    ?? null
+                )
+            ) {
+
+                $paymentIntentId =
+                    $invoice['payment_intent']['id']
+                    ?? null;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Record failed payment
+            |--------------------------------------------------------------------------
+            */
+
+            $payment =
+                Payment::query()
+                    ->updateOrCreate(
+                        [
+                            'stripe_invoice_id' =>
+                                $invoice['id'],
+                        ],
+                        [
+                            'user_id' =>
+                                $subscription->user_id,
+
+                            'subscription_id' =>
+                                $subscription->id,
+
+                            'stripe_payment_intent_id' =>
+                                $paymentIntentId,
+
+                            'amount' =>
+                                ((int) (
+                                    $invoice['amount_due']
+                                    ?? 0
+                                )) / 100,
+
+                            'currency' =>
+                                strtolower(
+                                    $invoice['currency']
+                                    ?? 'usd'
+                                ),
+
+                            'status' =>
+                                'failed',
+
+                            'paid_at' =>
+                                null,
+                        ]
+                    );
+
+            Log::warning(
+                'Failed payment recorded.',
                 [
-                    'stripe_invoice_id' => $invoice['id'],
-                ],
-                [
-                    'user_id' => $subscription->user_id,
-                    'subscription_id' => $subscription->id,
-                    'amount' => ($invoice['amount_due'] ?? 0) / 100,
-                    'currency' => $invoice['currency'] ?? 'usd',
-                    'status' => 'failed',
-                    'paid_at' => null,
+                    'payment_id' =>
+                        $payment->id,
+
+                    'subscription_id' =>
+                        $subscription->id,
+
+                    'stripe_invoice_id' =>
+                        $invoice['id']
+                        ?? null,
+
+                    'stripe_payment_intent_id' =>
+                        $paymentIntentId,
                 ]
             );
 
-            Log::warning('Failed payment recorded.', [
-                'payment_id' => $payment->id,
-                'subscription_id' => $subscription->id,
-                'stripe_invoice_id' => $invoice['id'],
-            ]);
+            /*
+            |--------------------------------------------------------------------------
+            | Cancel pending local plan
+            |--------------------------------------------------------------------------
+            |
+            | Current plan remains untouched.
+            |
+            */
 
-        } catch (Throwable $e) {
-            Log::error('Failed to record failed payment.', [
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'invoice_id' =>
-                    $payload['data']['object']['id'] ?? null,
-            ]);
-        }
+            if (
+                $subscription
+                    ->pending_subscription_plan_id
+            ) {
 
-        return new Response('Webhook Handled', 200);
-    }
+                $currentPlanId =
+                    $subscription
+                        ->subscription_plan_id;
 
+                $pendingPlanId =
+                    $subscription
+                        ->pending_subscription_plan_id;
 
-    public function handleChargeRefunded(array $payload)
-    {
-        try {
-
-            $charge = $payload['data']['object'];
-            $paymentIntentId = $charge['payment_intent'] ?? null;
-            Log::info('charge.refunded received', [
-                'charge_id' => $charge['id'] ?? null,
-                'payment_intent_id' => $paymentIntentId,
-                'amount' => $charge['amount'] ?? null,
-                'amount_refunded' => $charge['amount_refunded'] ?? null,
-                'status' => $charge['status'] ?? null,
-            ]);
-
-            if (! $paymentIntentId) {
-                Log::warning('Refunded charge has no payment intent.', [
-                    'charge_id' => $charge['id'] ?? null,
+                $subscription->update([
+                    'pending_subscription_plan_id' =>
+                        null,
                 ]);
 
+                Log::warning(
+                    'Pending subscription plan cancelled because payment failed.',
+                    [
+                        'subscription_id' =>
+                            $subscription->id,
+
+                        'current_subscription_plan_id' =>
+                            $currentPlanId,
+
+                        'cancelled_pending_plan_id' =>
+                            $pendingPlanId,
+
+                        'stripe_invoice_id' =>
+                            $invoice['id']
+                            ?? null,
+                    ]
+                );
+            }
+
+        } catch (Throwable $e) {
+
+            Log::error(
+                'Failed to process failed invoice payment.',
+                [
+                    'error' =>
+                        $e->getMessage(),
+
+                    'file' =>
+                        $e->getFile(),
+
+                    'line' =>
+                        $e->getLine(),
+
+                    'invoice_id' =>
+                        $payload['data']['object']['id']
+                        ?? null,
+                ]
+            );
+        }
+
+        return new Response(
+            'Webhook Handled',
+            200
+        );
+    }
+
+    /**
+     * Handle refunds.
+     */
+    public function handleChargeRefunded(
+        array $payload
+    ) {
+
+        try {
+
+            $charge =
+                $payload['data']['object'];
+
+            $paymentIntentId =
+                $charge['payment_intent']
+                ?? null;
+
+            /*
+            |--------------------------------------------------------------------------
+            | Expanded PaymentIntent support
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                is_array(
+                    $paymentIntentId
+                )
+            ) {
+                $paymentIntentId =
+                    $paymentIntentId['id']
+                    ?? null;
+            }
+
+            Log::info(
+                'charge.refunded received.',
+                [
+                    'charge_id' =>
+                        $charge['id']
+                        ?? null,
+
+                    'payment_intent_id' =>
+                        $paymentIntentId,
+
+                    'amount' =>
+                        $charge['amount']
+                        ?? null,
+
+                    'amount_refunded' =>
+                        $charge['amount_refunded']
+                        ?? null,
+
+                    'status' =>
+                        $charge['status']
+                        ?? null,
+                ]
+            );
+
+            if (! $paymentIntentId) {
+
+                Log::warning(
+                    'Refunded charge has no payment intent.',
+                    [
+                        'charge_id' =>
+                            $charge['id']
+                            ?? null,
+                    ]
+                );
+
                 return response()->json([
-                    'message' => 'Payment intent not found.',
+                    'message' =>
+                        'Payment intent not found.',
                 ], 200);
             }
 
-            $payment = Payment::where(
-                'stripe_payment_intent_id',
-                $paymentIntentId
-            )->first();
+            /*
+            |--------------------------------------------------------------------------
+            | Find local payment
+            |--------------------------------------------------------------------------
+            */
 
-            Log::info('Refund payment lookup', [
-                'payment_intent_id' => $paymentIntentId,
-                'payment_found' => (bool) $payment,
-                'payment_id' => $payment?->id,
-            ]);
+            $payment =
+                Payment::query()
+                    ->where(
+                        'stripe_payment_intent_id',
+                        $paymentIntentId
+                    )
+                    ->first();
+
+            Log::info(
+                'Refund payment lookup.',
+                [
+                    'payment_intent_id' =>
+                        $paymentIntentId,
+
+                    'payment_found' =>
+                        (bool) $payment,
+
+                    'payment_id' =>
+                        $payment?->id,
+                ]
+            );
 
             if (! $payment) {
 
-                Log::warning('Local payment not found for refund.', [
-                    'payment_intent_id' => $paymentIntentId,
-                    'charge_id' => $charge['id'] ?? null,
-                ]);
+                Log::warning(
+                    'Local payment not found for refund.',
+                    [
+                        'payment_intent_id' =>
+                            $paymentIntentId,
+
+                        'charge_id' =>
+                            $charge['id']
+                            ?? null,
+                    ]
+                );
 
                 return response()->json([
-                    'message' => 'Payment not found.',
+                    'message' =>
+                        'Payment not found.',
                 ], 200);
             }
 
-            $originalAmount = (float) $payment->amount;
+            /*
+            |--------------------------------------------------------------------------
+            | Determine refund status
+            |--------------------------------------------------------------------------
+            */
+
+            $originalAmount =
+                (float) $payment->amount;
 
             $refundedAmount =
-                ($charge['amount_refunded'] ?? 0) / 100;
+                ((int) (
+                    $charge['amount_refunded']
+                    ?? 0
+                )) / 100;
 
-            if ($refundedAmount >= $originalAmount) {
+            if (
+                $refundedAmount
+                >=
+                $originalAmount
+            ) {
 
                 $payment->update([
-                    'status' => 'refunded',
+                    'status' =>
+                        'refunded',
                 ]);
 
             } else {
 
                 $payment->update([
-                    'status' => 'partially_refunded',
+                    'status' =>
+                        'partially_refunded',
                 ]);
             }
 
-            Log::info('Payment refund processed successfully.', [
-                'payment_id' => $payment->id,
-                'original_amount' => $originalAmount,
-                'refunded_amount' => $refundedAmount,
-                'status' => $payment->fresh()->status,
-            ]);
+            Log::info(
+                'Payment refund processed successfully.',
+                [
+                    'payment_id' =>
+                        $payment->id,
+
+                    'original_amount' =>
+                        $originalAmount,
+
+                    'refunded_amount' =>
+                        $refundedAmount,
+
+                    'status' =>
+                        $payment
+                            ->fresh()
+                            ->status,
+                ]
+            );
 
         } catch (Throwable $e) {
 
-            Log::error('Failed to process refund.', [
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-            ]);
+            Log::error(
+                'Failed to process refund.',
+                [
+                    'error' =>
+                        $e->getMessage(),
+
+                    'file' =>
+                        $e->getFile(),
+
+                    'line' =>
+                        $e->getLine(),
+                ]
+            );
         }
 
         return response()->json([
-            'message' => 'Refund processed.',
+            'message' =>
+                'Refund processed.',
         ]);
     }
 
+    /**
+     * Synchronize local billing period
+     * with Stripe Subscription Item.
+     *
+     * Stripe Basil:
+     *
+     * subscription.items.data[0].current_period_start
+     * subscription.items.data[0].current_period_end
+     */
+    private function updateSubscriptionBillingPeriod(
+        Subscription $subscription,
+        array $stripeSubscription
+    ): void {
 
-    public function handleCustomerUpdated(array $payload)
-    {
-        return parent::handleCustomerUpdated($payload);
+        /*
+        |--------------------------------------------------------------------------
+        | First subscription item
+        |--------------------------------------------------------------------------
+        |
+        | Your current design uses one Stripe Price per subscription.
+        |
+        */
+
+        $item =
+            $stripeSubscription['items']['data'][0]
+            ?? null;
+
+        if (! $item) {
+
+            Log::warning(
+                'Stripe subscription has no subscription items.',
+                [
+                    'subscription_id' =>
+                        $subscription->id,
+
+                    'stripe_subscription_id' =>
+                        $subscription->stripe_id,
+                ]
+            );
+
+            return;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Billing period
+        |--------------------------------------------------------------------------
+        */
+
+        $periodStart =
+            $item['current_period_start']
+            ?? null;
+
+        $periodEnd =
+            $item['current_period_end']
+            ?? null;
+
+        if (
+            ! $periodStart
+            ||
+            ! $periodEnd
+        ) {
+
+            Log::warning(
+                'Stripe subscription item has no billing period.',
+                [
+                    'subscription_id' =>
+                        $subscription->id,
+
+                    'stripe_subscription_id' =>
+                        $subscription->stripe_id,
+
+                    'stripe_item_id' =>
+                        $item['id']
+                        ?? null,
+
+                    'current_period_start' =>
+                        $periodStart,
+
+                    'current_period_end' =>
+                        $periodEnd,
+                ]
+            );
+
+            return;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Save billing period locally
+        |--------------------------------------------------------------------------
+        */
+
+        $subscription->update([
+            'current_period_start' =>
+                Carbon::createFromTimestamp(
+                    (int) $periodStart
+                ),
+
+            'current_period_end' =>
+                Carbon::createFromTimestamp(
+                    (int) $periodEnd
+                ),
+        ]);
+
+        Log::info(
+            'Subscription billing period synchronized.',
+            [
+                'subscription_id' =>
+                    $subscription->id,
+
+                'stripe_subscription_id' =>
+                    $subscription->stripe_id,
+
+                'current_period_start' =>
+                    $subscription
+                        ->fresh()
+                        ->current_period_start
+                        ?->toDateTimeString(),
+
+                'current_period_end' =>
+                    $subscription
+                        ->fresh()
+                        ->current_period_end
+                        ?->toDateTimeString(),
+            ]
+        );
     }
 
+    /**
+     * Keep Cashier default customer update behavior.
+     */
+    public function handleCustomerUpdated(
+        array $payload
+    ) {
+        return parent::handleCustomerUpdated(
+            $payload
+        );
+    }
 
     /**
-     * Handle customer.deleted
-     *
-     * Cashier cancels the customer's subscriptions
-     * and clears Stripe billing fields.
+     * Keep Cashier default customer deletion behavior.
      */
-    public function handleCustomerDeleted(array $payload)
-    {
-        return parent::handleCustomerDeleted($payload);
+    public function handleCustomerDeleted(
+        array $payload
+    ) {
+        return parent::handleCustomerDeleted(
+            $payload
+        );
     }
 }

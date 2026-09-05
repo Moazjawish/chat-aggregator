@@ -42,4 +42,21 @@ class User extends Authenticatable
         return $this->hasMany(Payment::class);
     }
 
+    public function modelUsages()
+    {
+        return $this->hasMany(ModelUsage::class);
+    }
+
+    public function conversations()
+    {
+        return $this->hasMany(Conversation::class, 'user_id');
+    }
+    public function files()
+    {
+        return $this->hasMany(
+            File::class,
+            'user_id'
+        );
+    }
 }
+

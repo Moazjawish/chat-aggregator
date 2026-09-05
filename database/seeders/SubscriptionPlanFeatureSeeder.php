@@ -1,5 +1,4 @@
 <?php
-
 namespace Database\Seeders;
 
 use App\Models\Feature;
@@ -10,21 +9,38 @@ class SubscriptionPlanFeatureSeeder extends Seeder
 {
     public function run(): void
     {
-        $basic = SubscriptionPlan::where(
+        /*
+        |--------------------------------------------------------------------------
+        | Subscription Plans
+        |--------------------------------------------------------------------------
+        */
+
+        $basicMonthly = SubscriptionPlan::where(
             'name',
-            'Basic'
+            'Basic Monthly'
         )->firstOrFail();
 
-        $pro = SubscriptionPlan::where(
+        $basicYearly = SubscriptionPlan::where(
             'name',
-            'Pro'
+            'Basic Yearly'
         )->firstOrFail();
 
-        $premium = SubscriptionPlan::where(
+        $proMonthly = SubscriptionPlan::where(
             'name',
-            'Premium'
+            'Pro Monthly'
         )->firstOrFail();
 
+        $proYearly = SubscriptionPlan::where(
+            'name',
+            'Pro Yearly'
+        )->firstOrFail();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Features
+        |--------------------------------------------------------------------------
+        */
 
         $fileUpload = Feature::where(
             'key',
@@ -49,45 +65,24 @@ class SubscriptionPlanFeatureSeeder extends Seeder
 
         /*
         |--------------------------------------------------------------------------
-        | Basic
+        | Basic Features
         |--------------------------------------------------------------------------
         */
 
-        $basic->features()->syncWithoutDetaching([
+        $basicFeatures = [
             $fileUpload->id => [
                 'status' => true,
             ],
-        ]);
+        ];
 
 
         /*
         |--------------------------------------------------------------------------
-        | Pro
+        | Pro Features
         |--------------------------------------------------------------------------
         */
 
-        $pro->features()->syncWithoutDetaching([
-            $fileUpload->id => [
-                'status' => true,
-            ],
-
-            $imageUpload->id => [
-                'status' => true,
-            ],
-
-            $webSearch->id => [
-                'status' => true,
-            ],
-        ]);
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Premium
-        |--------------------------------------------------------------------------
-        */
-
-        $premium->features()->syncWithoutDetaching([
+        $proFeatures = [
             $fileUpload->id => [
                 'status' => true,
             ],
@@ -103,6 +98,50 @@ class SubscriptionPlanFeatureSeeder extends Seeder
             $advancedModels->id => [
                 'status' => true,
             ],
-        ]);
+        ];
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Basic Monthly
+        |--------------------------------------------------------------------------
+        */
+
+        $basicMonthly->features()->sync(
+            $basicFeatures
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Basic Yearly
+        |--------------------------------------------------------------------------
+        */
+
+        $basicYearly->features()->sync(
+            $basicFeatures
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Pro Monthly
+        |--------------------------------------------------------------------------
+        */
+
+        $proMonthly->features()->sync(
+            $proFeatures
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Pro Yearly
+        |--------------------------------------------------------------------------
+        */
+
+        $proYearly->features()->sync(
+            $proFeatures
+        );
     }
 }

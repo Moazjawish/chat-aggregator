@@ -33,7 +33,7 @@ return new class extends Migration
                 ->nullable()
                 ->unique();
 
-            $table->decimal('amount', 12, 2);
+            $table->decimal('amount', 20, 15);
             $table->string('currency', 3)->default('usd');
 
             $table->string('status')->default('pending');

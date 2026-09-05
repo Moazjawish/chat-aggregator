@@ -17,13 +17,15 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            UserSeeder::class,
             AIModelSeeder::class,
-            AIModelCostSeeder::class,
-            FeatureSeeder::class,
             SubscriptionPlanSeeder::class,
+            AIModelCostSeeder::class,
             SubscriptionPlanModelSeeder::class,
+            UserSeeder::class,
+            FeatureSeeder::class,
             SubscriptionPlanFeatureSeeder::class,
-        ]);
+            SubscriptionPlanLimitSeeder::class,
+            ModelCapabilitySeeder::class,
+            ]);
     }
 }

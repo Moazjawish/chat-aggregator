@@ -29,6 +29,7 @@ class StripeService
                 ]
             ]
         ]);
+
         $price = $stripe->prices->create([
             'product' => $product->id,
             'unit_amount' => (int) round($plan->price * 100),
@@ -40,6 +41,7 @@ class StripeService
                     'subscription_plan_id' => $plan->id
                 ]
         ]);
+
         $plan->update([
             'stripe_product_id' => $product->id,
             'stripe_price_id' => $price->id,

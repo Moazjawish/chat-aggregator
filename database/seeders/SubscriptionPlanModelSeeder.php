@@ -1,5 +1,4 @@
 <?php
-
 namespace Database\Seeders;
 
 use App\Models\AIModel;
@@ -10,20 +9,38 @@ class SubscriptionPlanModelSeeder extends Seeder
 {
     public function run(): void
     {
-        $basic = SubscriptionPlan::where(
+        /*
+        |--------------------------------------------------------------------------
+        | Subscription Plans
+        |--------------------------------------------------------------------------
+        */
+
+        $basicMonthly = SubscriptionPlan::where(
             'name',
-            'Basic'
+            'Basic Monthly'
         )->firstOrFail();
 
-        $pro = SubscriptionPlan::where(
+        $basicYearly = SubscriptionPlan::where(
             'name',
-            'Pro'
+            'Basic Yearly'
         )->firstOrFail();
 
-        $premium = SubscriptionPlan::where(
+        $proMonthly = SubscriptionPlan::where(
             'name',
-            'Premium'
+            'Pro Monthly'
         )->firstOrFail();
+
+        $proYearly = SubscriptionPlan::where(
+            'name',
+            'Pro Yearly'
+        )->firstOrFail();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | AI Models
+        |--------------------------------------------------------------------------
+        */
 
         $gpt = AIModel::where(
             'model_key',
@@ -32,7 +49,7 @@ class SubscriptionPlanModelSeeder extends Seeder
 
         $gemini = AIModel::where(
             'model_key',
-            'gemini-2.5-pro'
+            'gemini-3.6-flash'
         )->firstOrFail();
 
         $claude = AIModel::where(
@@ -45,89 +62,115 @@ class SubscriptionPlanModelSeeder extends Seeder
             'deepseek-chat'
         )->firstOrFail();
 
+
         /*
         |--------------------------------------------------------------------------
-        | Basic
+        | Basic Models
         |--------------------------------------------------------------------------
         */
 
-        $basic->models()->syncWithoutDetaching([
+        $basicModels = [
             $gemini->id => [
-                'input_price' => 0.00000300,
-                'output_price' => 0.00001000,
+                'input_price' => 3.00,
+                'output_price' => 10.00,
                 'status' => true,
+                'input_token_limit' => 10000,
+                'output_token_limit' => 5000,
             ],
 
             $deepseek->id => [
-                'input_price' => 0.00000100,
-                'output_price' => 0.00000300,
+                'input_price' => 1.00,
+                'output_price' => 3.00,
                 'status' => true,
-            ],
-        ]);
+                'input_token_limit' => 10000,
+                'output_token_limit' => 5000,
+                ],
+        ];
+
 
         /*
         |--------------------------------------------------------------------------
-        | Pro
+        | Pro Models
         |--------------------------------------------------------------------------
         */
 
-        $pro->models()->syncWithoutDetaching([
+        $proModels = [
             $gpt->id => [
-                'input_price' => 0.00000500,
-                'output_price' => 0.00001500,
+                'input_price' => 5.00,
+                'output_price' => 15.00,
                 'status' => true,
+                'input_token_limit' => 100000,
+                'output_token_limit' => 50000,
             ],
 
             $gemini->id => [
-                'input_price' => 0.00000300,
-                'output_price' => 0.00001000,
+                'input_price' => 3.00,
+                'output_price' => 10.00,
                 'status' => true,
+                'input_token_limit' => 100000,
+                'output_token_limit' => 50000,
             ],
 
             $claude->id => [
-                'input_price' => 0.00000600,
-                'output_price' => 0.00002000,
+                'input_price' => 6.00,
+                'output_price' => 20.00,
                 'status' => true,
+                'input_token_limit' => 100000,
+                'output_token_limit' => 50000,
             ],
 
             $deepseek->id => [
-                'input_price' => 0.00000100,
-                'output_price' => 0.00000300,
+                'input_price' => 1.00,
+                'output_price' => 3.00,
                 'status' => true,
+                'input_token_limit' => 100000,
+                'output_token_limit' => 50000,
             ],
-        ]);
+        ];
 
 
         /*
         |--------------------------------------------------------------------------
-        | Premium
+        | Basic Monthly
         |--------------------------------------------------------------------------
         */
 
-        $premium->models()->syncWithoutDetaching([
-            $gpt->id => [
-                'input_price' => 0.00000400,
-                'output_price' => 0.00001200,
-                'status' => true,
-            ],
+        $basicMonthly->models()->sync(
+            $basicModels
+        );
 
-            $gemini->id => [
-                'input_price' => 0.00000250,
-                'output_price' => 0.00000800,
-                'status' => true,
-            ],
 
-            $claude->id => [
-                'input_price' => 0.00000500,
-                'output_price' => 0.00001800,
-                'status' => true,
-            ],
+        /*
+        |--------------------------------------------------------------------------
+        | Basic Yearly
+        |--------------------------------------------------------------------------
+        */
 
-            $deepseek->id => [
-                'input_price' => 0.00000080,
-                'output_price' => 0.00000250,
-                'status' => true,
-            ],
-        ]);
+        $basicYearly->models()->sync(
+            $basicModels
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Pro Monthly
+        |--------------------------------------------------------------------------
+        */
+
+        $proMonthly->models()->sync(
+            $proModels
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Pro Yearly
+        |--------------------------------------------------------------------------
+        */
+
+        $proYearly->models()->sync(
+            $proModels
+        );
     }
 }
+

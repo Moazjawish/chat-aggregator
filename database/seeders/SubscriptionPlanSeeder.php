@@ -11,7 +11,7 @@ class SubscriptionPlanSeeder extends Seeder
     {
         $plans = [
             [
-                'name' => 'Basic',
+                'name' => 'Basic Monthly',
                 'description' => 'Basic AI access.',
                 'price' => 10.00,
                 'billing_interval' => 'month',
@@ -21,7 +21,7 @@ class SubscriptionPlanSeeder extends Seeder
             ],
 
             [
-                'name' => 'Pro',
+                'name' => 'Pro Monthly',
                 'description' => 'Professional AI access.',
                 'price' => 20.00,
                 'billing_interval' => 'month',
@@ -31,10 +31,19 @@ class SubscriptionPlanSeeder extends Seeder
             ],
 
             [
-                'name' => 'Premium',
-                'description' => 'Full access to advanced AI models.',
+                'name' => 'Basic Yearly',
+                'description' => 'basic access to advanced AI models.',
                 'price' => 50.00,
-                'billing_interval' => 'month',
+                'billing_interval' => 'year',
+                'stripe_product_id' => null,
+                'stripe_price_id' => null,
+                'status' => true,
+            ],
+            [
+                'name' => 'Pro Yearly',
+                'description' => 'Full access to advanced AI models.',
+                'price' => 100.00,
+                'billing_interval' => 'year',
                 'stripe_product_id' => null,
                 'stripe_price_id' => null,
                 'status' => true,

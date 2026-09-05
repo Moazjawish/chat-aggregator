@@ -16,8 +16,8 @@ return new class extends Migration
                 ->cascadeOnDelete();
 
             // Cost paid by your platform to the AI provider
-            $table->decimal('input_cost', 12, 8);
-            $table->decimal('output_cost', 12, 8);
+            $table->decimal('input_cost', 20, 15);
+            $table->decimal('output_cost', 20, 15);
 
             $table->timestamp('effective_from')->nullable();
             $table->timestamp('effective_to')->nullable();
