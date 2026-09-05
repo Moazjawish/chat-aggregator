@@ -2311,7 +2311,7 @@ Supervisor/Systemd
 Also configure Stripe's production webhook endpoint to:
 
 ```text
-https://YOUR_DOMAIN/api/stripe/webhook
+https://http://127.0.0.1:8000/api/stripe/webhook
 ```
 
 ---
